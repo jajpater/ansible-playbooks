@@ -23,6 +23,15 @@ rust_components:
   - "clippy"
   - "rust-src"
 
+# Optional cargo packages to install
+rust_cargo_packages: []
+  # Examples:
+  # - "bp"              # Better paste - clipboard tool
+  # - "fd-find"         # Modern 'find' replacement
+  # - "ripgrep"         # Fast text search
+  # - "bat"             # Cat with syntax highlighting
+  # - "exa"             # Modern 'ls' replacement
+
 # Cargo configuration settings
 rust_cargo_config:
   # Use sparse registry for faster downloads (Rust 1.68+)

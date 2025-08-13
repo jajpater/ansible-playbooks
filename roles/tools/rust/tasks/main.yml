@@ -142,3 +142,19 @@
   loop: "{{ rust_components }}"
   when: rust_components | length > 0
   ignore_errors: yes
+
+- name: Install cargo packages
+  shell: |
+    export CARGO_HOME="{{ rust_cargo_home }}"
+    export RUSTUP_HOME="{{ rust_rustup_home }}"
+    export PATH="{{ rust_cargo_home }}/bin:$PATH"
+    cargo install {{ item }}
+  environment:
+    CARGO_HOME: "{{ rust_cargo_home }}"
+    RUSTUP_HOME: "{{ rust_rustup_home }}"
+    PATH: "{{ rust_cargo_home }}/bin:{{ ansible_env.PATH }}"
+  loop: "{{ rust_cargo_packages }}"
+  when: rust_cargo_packages | length > 0
+  register: cargo_install_result
+  changed_when: "'Installing' in cargo_install_result.stdout or 'Updating' in cargo_install_result.stdout"
+  ignore_errors: yes

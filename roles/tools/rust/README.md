@@ -53,6 +53,15 @@ rust_components:
   - "clippy" 
   - "rust-src"
 
+# Optional cargo packages to install
+rust_cargo_packages: []
+  # Examples:
+  # - "bp"              # Better paste - clipboard tool
+  # - "fd-find"         # Modern 'find' replacement
+  # - "ripgrep"         # Fast text search
+  # - "bat"             # Cat with syntax highlighting
+  # - "exa"             # Modern 'ls' replacement
+
 # Cargo configuration settings (see defaults/main.yml for full structure)
 rust_cargo_config: {...}
 ```
@@ -109,6 +118,22 @@ If you manage your shell configuration elsewhere:
 - role: tools/rust
   vars:
     rust_update_shell_profiles: false
+  tags: [rust]
+```
+
+### Install Cargo Packages
+
+Install useful Rust command-line tools via cargo:
+
+```yaml
+- role: tools/rust
+  vars:
+    rust_cargo_packages:
+      - "bp"           # Better paste - clipboard tool
+      - "fd-find"     # Modern 'find' replacement
+      - "ripgrep"     # Fast text search
+      - "bat"         # Cat with syntax highlighting
+      - "exa"         # Modern 'ls' replacement
   tags: [rust]
 ```
 
