@@ -1,0 +1,27 @@
+---
+# Default variables for gdu role
+
+# Version management
+gdu_version: "latest"  # Can be "latest" or specific version like "v5.31.0"
+gdu_update_mode: "auto"  # auto, always, never, force
+
+# Installation paths
+gdu_install_dir: "{{ ansible_env.HOME }}/.local/bin"
+gdu_download_dir: "/tmp"
+
+# Binary selection
+gdu_binary_type: "static"  # static, regular, or x (with extended features)
+
+# Architecture and platform
+gdu_arch: "amd64"
+gdu_platform: "linux"
+
+# GitHub repository information
+gdu_repo: "dundee/gdu"
+gdu_github_api_url: "https://api.github.com/repos/{{ gdu_repo }}"
+
+# Download timeout
+gdu_download_timeout: 300
+
+# Verification
+gdu_verify_installation: true

@@ -1,0 +1,6 @@
+---
+# Handlers for gdu role
+
+- name: gdu installed
+  debug:
+    msg: "gdu has been successfully installed/updated"

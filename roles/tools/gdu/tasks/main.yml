@@ -1,0 +1,164 @@
+---
+# Main tasks for gdu role
+
+- name: Check if gdu is already installed
+  stat:
+    path: "{{ gdu_install_dir }}/gdu"
+  register: gdu_current_binary
+
+- name: Get currently installed version
+  shell: "{{ gdu_install_dir }}/gdu --version | head -1 | awk '{print $3}'"
+  register: gdu_current_version
+  when: gdu_current_binary.stat.exists
+  changed_when: false
+  failed_when: false
+
+- name: Get latest release information from GitHub API
+  uri:
+    url: "{{ gdu_github_api_url }}/releases/latest"
+    method: GET
+    return_content: true
+    timeout: 30
+  register: gdu_latest_release
+  when: gdu_version == "latest"
+
+- name: Set target version
+  set_fact:
+    gdu_target_version: "{{ gdu_latest_release.json.tag_name if gdu_version == 'latest' else gdu_version }}"
+
+- name: Display version information
+  debug:
+    msg: |
+      Current version: {{ gdu_current_version.stdout | default('Not installed') }}
+      Target version: {{ gdu_target_version }}
+      Update mode: {{ gdu_update_mode }}
+
+- name: Determine if update is needed
+  set_fact:
+    gdu_needs_update: >-
+      {{
+        gdu_update_mode == "always" or
+        gdu_update_mode == "force" or
+        not gdu_current_binary.stat.exists or
+        (gdu_update_mode == "auto" and 
+         gdu_current_version.stdout | default('') != gdu_target_version)
+      }}
+
+- name: Skip installation if not needed
+  debug:
+    msg: "gdu {{ gdu_current_version.stdout }} is already installed and up to date"
+  when: not gdu_needs_update
+
+- name: Proceed with installation/update
+  block:
+    - name: Create installation directory
+      file:
+        path: "{{ gdu_install_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Set binary filename based on type
+      set_fact:
+        gdu_binary_filename: >-
+          {% if gdu_binary_type == "static" -%}
+          gdu_{{ gdu_platform }}_{{ gdu_arch }}_static.tgz
+          {%- elif gdu_binary_type == "x" -%}
+          gdu_{{ gdu_platform }}_{{ gdu_arch }}-x.tgz
+          {%- else -%}
+          gdu_{{ gdu_platform }}_{{ gdu_arch }}.tgz
+          {%- endif %}
+        gdu_extracted_binary_name: >-
+          {% if gdu_binary_type == "static" -%}
+          gdu_{{ gdu_platform }}_{{ gdu_arch }}_static
+          {%- elif gdu_binary_type == "x" -%}
+          gdu_{{ gdu_platform }}_{{ gdu_arch }}-x
+          {%- else -%}
+          gdu_{{ gdu_platform }}_{{ gdu_arch }}
+          {%- endif %}
+
+    - name: Get release information for specific version
+      uri:
+        url: "{{ gdu_github_api_url }}/releases/tags/{{ gdu_target_version }}"
+        method: GET
+        return_content: true
+        timeout: 30
+      register: gdu_release_info
+      when: gdu_version != "latest"
+
+    - name: Find download URL for the binary
+      set_fact:
+        gdu_download_url: >-
+          {% set release = gdu_latest_release.json if gdu_version == "latest" else gdu_release_info.json %}
+          {% for asset in release.assets %}
+          {% if asset.name == gdu_binary_filename %}
+          {{ asset.browser_download_url }}
+          {% endif %}
+          {% endfor %}
+
+    - name: Verify download URL was found
+      fail:
+        msg: "Could not find download URL for {{ gdu_binary_filename }} in release {{ gdu_target_version }}"
+      when: gdu_download_url == ""
+
+    - name: Download gdu tarball
+      get_url:
+        url: "{{ gdu_download_url }}"
+        dest: "{{ gdu_download_dir }}/{{ gdu_binary_filename }}"
+        timeout: "{{ gdu_download_timeout }}"
+        mode: '0644'
+      register: gdu_download
+
+    - name: Extract gdu binary
+      unarchive:
+        src: "{{ gdu_download_dir }}/{{ gdu_binary_filename }}"
+        dest: "{{ gdu_download_dir }}"
+        remote_src: true
+        creates: "{{ gdu_download_dir }}/{{ gdu_extracted_binary_name }}"
+
+    - name: Install gdu binary
+      copy:
+        src: "{{ gdu_download_dir }}/{{ gdu_extracted_binary_name }}"
+        dest: "{{ gdu_install_dir }}/gdu"
+        mode: '0755'
+        remote_src: true
+      notify: gdu installed
+
+    - name: Clean up downloaded files
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ gdu_download_dir }}/{{ gdu_binary_filename }}"
+        - "{{ gdu_download_dir }}/{{ gdu_extracted_binary_name }}"
+        - "{{ gdu_download_dir }}/LICENSE"
+        - "{{ gdu_download_dir }}/README.md"
+
+  when: gdu_needs_update
+
+- name: Verify gdu installation
+  block:
+    - name: Check if gdu binary exists
+      stat:
+        path: "{{ gdu_install_dir }}/gdu"
+      register: gdu_verify_binary
+
+    - name: Get installed version
+      shell: "{{ gdu_install_dir }}/gdu --version | head -1"
+      register: gdu_verify_version
+      changed_when: false
+      when: gdu_verify_binary.stat.exists
+
+    - name: Display installation verification
+      debug:
+        msg: |
+          gdu installation verified:
+          Binary path: {{ gdu_install_dir }}/gdu
+          Version: {{ gdu_verify_version.stdout | default('Could not determine') }}
+          Executable: {{ gdu_verify_binary.stat.exists | default(false) }}
+
+    - name: Fail if verification failed
+      fail:
+        msg: "gdu installation verification failed"
+      when: not gdu_verify_binary.stat.exists
+
+  when: gdu_verify_installation

@@ -62,3 +62,6 @@
 
     - role: tools/fvim
       tags: [fvim, neovim-gui, gui]
+
+    - role: tools/gdu
+      tags: [gdu, disk-usage, analyzer]

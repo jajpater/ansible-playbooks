@@ -1,0 +1,31 @@
+---
+# Meta information for gdu role
+
+galaxy_info:
+  author: "System Administrator"
+  description: "Install and manage gdu (Go Disk Usage) - fast disk usage analyzer"
+  company: ""
+  license: "MIT"
+  min_ansible_version: "2.9"
+  
+  platforms:
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+        - noble
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+
+  galaxy_tags:
+    - disk
+    - usage
+    - analyzer
+    - go
+    - cli
+    - tools
+    - system
+
+dependencies: []
