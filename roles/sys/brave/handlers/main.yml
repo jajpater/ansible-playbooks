@@ -1,0 +1,13 @@
+---
+- name: update apt cache
+  apt:
+    update_cache: yes
+  when: ansible_pkg_mgr == "apt"
+
+- name: verify brave installation
+  command: brave-browser --version
+  register: brave_version_output
+  changed_when: false
+  failed_when: brave_version_output.rc != 0
+  ignore_errors: yes
+  listen: verify brave installation

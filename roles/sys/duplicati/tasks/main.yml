@@ -1,0 +1,55 @@
+- name: Ensure dependencies for https downloads (older systems)
+  apt:
+    name:
+      - ca-certificates
+      - gnupg
+      - apt-transport-https
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Fetch Duplicati {{ duplicati_channel }} index
+  uri:
+    url: "https://updates.duplicati.com/{{ duplicati_channel }}/"
+    return_content: true
+  register: duplicati_index
+
+- name: Extract latest Duplicati .deb filename for {{ duplicati_arch }}
+  set_fact:
+    duplicati_filename_candidates: >-
+      {{ duplicati_index.content | regex_findall('href="(duplicati-[^"]*' ~ duplicati_arch ~ '\.deb)"') }}
+  vars:
+    # Example arch values in the index: linux-x64-gui, linux-arm64-gui
+    # We match filenames like: duplicati-2.1.0.3_beta_2025-01-22-linux-x64-gui.deb
+    # and pick the last (sorted) one.
+- name: Pick latest candidate (lexicographically)
+  set_fact:
+    duplicati_filename: "{{ (duplicati_filename_candidates | sort) | last | default('') }}"
+
+- name: Fail if no matching .deb was found
+  fail:
+    msg: "No Duplicati .deb found for arch='{{ duplicati_arch }}' in channel '{{ duplicati_channel }}'"
+  when: duplicati_filename | length == 0
+
+- name: Compose download URL
+  set_fact:
+    duplicati_url: "https://updates.duplicati.com/{{ duplicati_channel }}/{{ duplicati_filename }}"
+
+- name: Download Duplicati .deb
+  get_url:
+    url: "{{ duplicati_url }}"
+    dest: "/tmp/{{ duplicati_filename }}"
+    mode: "0644"
+
+- name: Install Duplicati package
+  apt:
+    deb: "/tmp/{{ duplicati_filename }}"
+    state: present
+  register: dup_install
+
+# Optional: try to enable & start the service if present
+- name: Enable and start duplicati (best-effort)
+  service:
+    name: duplicati
+    state: started
+    enabled: true
+  ignore_errors: true

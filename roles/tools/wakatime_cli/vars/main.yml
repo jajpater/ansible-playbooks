@@ -1,0 +1,8 @@
+# If true, also create a 'wakatime' symlink for older plugins
+wakatime_compat_symlink: true
+
+# Where to write the config (defaults to ~/.wakatime.cfg)
+wakatime_config_path: "{{ ansible_env.HOME }}/.wakatime.cfg"
+
+# Provide API key here (or via env WAKATIME_API_KEY; or via ~/.config/ansible/env)
+wakatime_api_key: ""

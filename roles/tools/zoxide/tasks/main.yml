@@ -1,0 +1,32 @@
+- name: Install zoxide (GitHub latest)
+  include_role:
+    name: helpers/github_install
+  vars:
+    name: "zoxide"
+    repo: "ajeetdsouza/zoxide"
+    arch_tag: "{% if ansible_architecture in ['x86_64','amd64'] %}x86_64{% elif ansible_architecture in ['aarch64','arm64'] %}aarch64{% else %}{{ ansible_architecture }}{% endif %}"
+    asset_regex: "zoxide-.*-{{ arch_tag }}-unknown-linux-musl\\.tar\\.gz$"
+    extra_unarchive_opts:
+      - "--strip-components=1"
+    bin_relpath: "zoxide"
+  tags: [zoxide]
+
+- name: Ensure ~/.config/zsh exists (for optional snippet)
+  file:
+    path: "{{ ansible_env.HOME }}/.config/zsh"
+    state: directory
+    mode: "0755"
+  when: zoxide_write_profile_snippet | bool
+  tags: [zoxide]
+
+- name: Write zoxide zsh init snippet (optional)
+  copy:
+    dest: "{{ ansible_env.HOME }}/.config/zsh/zoxide.zsh"
+    mode: "0644"
+    content: |
+      # zoxide init for zsh (installed by Ansible)
+      if command -v zoxide >/dev/null 2>&1; then
+        eval "$(zoxide init zsh)"
+      fi
+  when: zoxide_write_profile_snippet | bool
+  tags: [zoxide]

@@ -1,0 +1,87 @@
+---
+# Check system dependencies for rbw installation
+
+- name: Check if required system packages are installed
+  command: dpkg -l {{ item }}
+  register: package_check
+  failed_when: false
+  changed_when: false
+  loop:
+    - pinentry-curses
+    - pinentry-gnome3
+    - rofi
+    - pipx
+    - build-essential
+    - curl
+  tags:
+    - rbw
+    - dependencies
+
+- name: Create list of missing packages
+  set_fact:
+    missing_packages: "{{ missing_packages | default([]) + [item.item] }}"
+  when: item.rc != 0
+  loop: "{{ package_check.results }}"
+  tags:
+    - rbw
+    - dependencies
+
+- name: Display missing packages warning
+  debug:
+    msg: |
+      WARNING: The following system packages are missing and may be needed:
+      {{ missing_packages | join(', ') }}
+      
+      Please install them with:
+      sudo apt update && sudo apt install {{ missing_packages | join(' ') }}
+      
+      Note: At least one pinentry package (pinentry-curses or pinentry-gnome3) is required for rbw to work.
+      rofi is required for rofi-rbw to function.
+  when: missing_packages is defined and missing_packages | length > 0
+  tags:
+    - rbw
+    - dependencies
+
+- name: Check if at least one pinentry package is available
+  command: which pinentry
+  register: pinentry_check
+  failed_when: false
+  changed_when: false
+  tags:
+    - rbw
+    - dependencies
+
+- name: Fail if no pinentry is found and rbw_require_pinentry is true
+  fail:
+    msg: |
+      No pinentry program found. rbw requires pinentry for password prompts.
+      Install one of: pinentry-curses, pinentry-gnome3, pinentry-gtk2, etc.
+      Or set rbw_require_pinentry: false to skip this check.
+  when: 
+    - pinentry_check.rc != 0
+    - rbw_require_pinentry | bool
+  tags:
+    - rbw
+    - dependencies
+
+- name: Check if Rust/Cargo is available
+  command: "{{ rbw_cargo_path }}/cargo --version"
+  register: cargo_check
+  failed_when: false
+  changed_when: false
+  environment: "{{ rbw_environment }}"
+  tags:
+    - rbw
+    - dependencies
+
+- name: Fail if Cargo is not available
+  fail:
+    msg: |
+      Cargo (Rust package manager) not found at {{ rbw_cargo_path }}/cargo.
+      Please ensure Rust is properly installed. You may need to run the tools/rust role first.
+      Current PATH: {{ ansible_env.PATH }}
+      Expected Cargo location: {{ rbw_cargo_path }}/cargo
+  when: cargo_check.rc != 0
+  tags:
+    - rbw
+    - dependencies

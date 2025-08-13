@@ -1,0 +1,25 @@
+- name: Ensure font dir exists
+  file:
+    path: "{{ ansible_env.HOME }}/.local/share/fonts/source-code-pro"
+    state: directory
+    mode: "0755"
+  tags: [source-code-pro]
+
+- name: Download Source Code Pro (TTF zip)
+  get_url:
+    url: "https://github.com/adobe-fonts/source-code-pro/releases/download/2.042R-u%2F1.062R-i%2F1.026R-vf/TTF-source-code-pro-2.042R-u_1.062R-i.zip"
+    dest: "/tmp/source-code-pro.ttf.zip"
+    mode: "0644"
+  tags: [source-code-pro]
+
+- name: Unpack fonts
+  unarchive:
+    src: "/tmp/source-code-pro.ttf.zip"
+    dest: "{{ ansible_env.HOME }}/.local/share/fonts/source-code-pro"
+    remote_src: true
+  tags: [source-code-pro]
+
+- name: Rebuild font cache
+  command: fc-cache -f
+  changed_when: false
+  tags: [source-code-pro]

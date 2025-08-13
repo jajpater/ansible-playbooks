@@ -1,0 +1,9 @@
+- name: Install greenclip (GitHub latest)
+  include_role:
+    name: helpers/github_install
+  vars:
+    name: "greenclip"
+    repo: "erebe/greenclip"
+    asset_regex: "^greenclip$"
+    bin_relpath: "greenclip"
+  tags: [greenclip]

@@ -1,0 +1,50 @@
+---
+# Verification tasks for rbw and rofi-rbw
+
+- name: Verify rbw installation
+  command: "{{ rbw_cargo_path }}/rbw --version"
+  register: rbw_verify_result
+  failed_when: rbw_verify_result.rc != 0
+  changed_when: false
+  environment: "{{ rbw_environment }}"
+  tags:
+    - rbw
+    - verify
+
+- name: Verify rofi-rbw installation
+  command: "{{ rofi_rbw_script_path }} --version"
+  register: rofi_rbw_verify_result
+  failed_when: rofi_rbw_verify_result.rc != 0
+  changed_when: false
+  environment: "{{ rbw_environment }}"
+  tags:
+    - rofi-rbw
+    - verify
+
+- name: Display verification results
+  debug:
+    msg: |
+      Installation verification completed successfully:
+      
+      rbw:
+      - Version: {{ rbw_verify_result.stdout.split()[1] }}
+      - Location: {{ rbw_cargo_path }}/rbw
+      
+      rofi-rbw:
+      - Version: {{ rofi_rbw_verify_result.stdout.split()[1] }}
+      - Script location: {{ rofi_rbw_script_path }}
+      
+      Next steps:
+      1. Configure rbw with your Bitwarden account:
+         rbw config set email your-email@example.com
+         rbw login
+         rbw sync
+      
+      2. Test rofi-rbw:
+         rofi-rbw
+      
+      3. Optional: Add keybindings to your window manager to launch rofi-rbw
+  tags:
+    - rbw
+    - rofi-rbw
+    - verify

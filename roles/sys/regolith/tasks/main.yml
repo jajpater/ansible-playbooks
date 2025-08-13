@@ -1,0 +1,33 @@
+- name: Determine Regolith codename for Ubuntu
+  set_fact:
+    regolith_codename: "{{ ansible_distribution_release }}"
+  when: ansible_distribution | lower == 'ubuntu'
+
+- name: Ensure keyring directory exists
+  file:
+    path: /usr/share/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Download Regolith ASCII key
+  get_url:
+    url: "https://archive.regolith-desktop.com/regolith.key"
+    dest: "/tmp/regolith.key"
+    mode: "0644"
+
+- name: Convert Regolith key to gpg (dearmor)
+  command: "gpg --dearmor --yes --output /usr/share/keyrings/regolith-archive-keyring.gpg /tmp/regolith.key"
+  args:
+    creates: /usr/share/keyrings/regolith-archive-keyring.gpg
+
+- name: Add Regolith apt repository
+  apt_repository:
+    repo: "deb [arch={{ regolith_arch }} signed-by=/usr/share/keyrings/regolith-archive-keyring.gpg] https://archive.regolith-desktop.com/{{ regolith_distro_name }}/{{ regolith_suite }} {{ regolith_codename }} {{ regolith_component }}"
+    filename: regolith
+    state: present
+
+- name: Install Regolith desktop packages
+  apt:
+    name: "{{ regolith_packages }}"
+    state: present
+    update_cache: yes

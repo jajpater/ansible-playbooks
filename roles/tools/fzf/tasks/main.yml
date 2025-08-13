@@ -1,0 +1,10 @@
+- name: Install fzf (GitHub latest)
+  include_role:
+    name: helpers/github_install
+  vars:
+    name: "fzf"
+    repo: "junegunn/fzf"
+    # fzf assets are like: fzf-0.62.0-linux_amd64.tar.gz
+    asset_regex: "linux_amd64\\.tar\\.gz$"
+    bin_relpath: "fzf"
+  tags: [fzf]

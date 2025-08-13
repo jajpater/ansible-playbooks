@@ -1,0 +1,82 @@
+---
+# Install rbw via cargo
+
+- name: Check if rbw is already installed
+  command: "{{ rbw_cargo_path }}/rbw --version"
+  register: rbw_current_version
+  failed_when: false
+  changed_when: false
+  environment: "{{ rbw_environment }}"
+  tags:
+    - rbw
+    - install
+
+- name: Parse current rbw version
+  set_fact:
+    rbw_installed_version: "{{ rbw_current_version.stdout.split()[1] | default('none') }}"
+  when: rbw_current_version.rc == 0
+  tags:
+    - rbw
+    - install
+
+- name: Display current rbw installation status
+  debug:
+    msg: |
+      rbw installation status:
+      - Installed: {{ rbw_current_version.rc == 0 }}
+      {% if rbw_current_version.rc == 0 %}
+      - Current version: {{ rbw_installed_version }}
+      {% endif %}
+      - Update mode: {{ rbw_update_mode }}
+  tags:
+    - rbw
+    - install
+
+- name: Install or update rbw via cargo
+  command: "{{ rbw_cargo_path }}/cargo install --locked rbw {{ '--force' if rbw_update_mode == 'force' else '' }}"
+  register: rbw_install_result
+  environment: "{{ rbw_environment }}"
+  when: >
+    rbw_current_version.rc != 0 or
+    (rbw_update_mode in ['always', 'force']) or
+    (rbw_update_mode == 'auto' and rbw_auto_update | bool)
+  notify:
+    - verify rbw installation
+  tags:
+    - rbw
+    - install
+
+- name: Display rbw installation result
+  debug:
+    msg: |
+      rbw installation completed:
+      {% if rbw_install_result.changed %}
+      - Action taken: {{ 'Updated' if rbw_current_version.rc == 0 else 'Installed' }}
+      - Installation successful
+      {% else %}
+      - No action taken (already installed and update not requested)
+      {% endif %}
+  when: rbw_install_result is defined
+  tags:
+    - rbw
+    - install
+
+- name: Create rbw config directory
+  file:
+    path: "{{ rbw_config_dir }}"
+    state: directory
+    mode: '0700'
+  tags:
+    - rbw
+    - config
+
+- name: Template rbw initial configuration
+  template:
+    src: config.json.j2
+    dest: "{{ rbw_config_dir }}/config.json"
+    mode: '0600'
+    backup: true
+  when: rbw_create_initial_config | bool
+  tags:
+    - rbw
+    - config

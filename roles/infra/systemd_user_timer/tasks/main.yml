@@ -1,0 +1,41 @@
+- name: Ensure systemd user dir exists
+  file:
+    path: "{{ ansible_env.HOME }}/.config/systemd/user"
+    state: directory
+    mode: "0755"
+
+- name: Install service unit
+  template:
+    src: "ansible-tools-update.service.j2"
+    dest: "{{ ansible_env.HOME }}/.config/systemd/user/{{ systemd_update_service_name }}.service"
+    mode: "0644"
+
+- name: Install timer unit
+  template:
+    src: "ansible-tools-update.timer.j2"
+    dest: "{{ ansible_env.HOME }}/.config/systemd/user/{{ systemd_update_service_name }}.timer"
+    mode: "0644"
+
+- name: systemctl --user daemon-reload
+  command: systemctl --user daemon-reload
+  changed_when: false
+
+- name: Check if timer is enabled
+  command: systemctl --user is-enabled {{ systemd_update_service_name }}.timer
+  register: timer_enabled
+  ignore_errors: true
+  changed_when: false
+
+- name: Enable timer
+  command: systemctl --user enable {{ systemd_update_service_name }}.timer
+  when: timer_enabled.rc != 0
+
+- name: Check if timer is active
+  command: systemctl --user is-active {{ systemd_update_service_name }}.timer
+  register: timer_active
+  ignore_errors: true
+  changed_when: false
+
+- name: Start timer
+  command: systemctl --user start {{ systemd_update_service_name }}.timer
+  when: timer_active.rc != 0

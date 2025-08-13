@@ -1,0 +1,17 @@
+# Service/timer base name (without suffixes)
+systemd_update_service_name: "ansible-tools-update"
+
+# Where your user playbook lives
+update_playbook_path: "{{ ansible_env.HOME }}/System/ansible-playbooks/user.yml"
+
+# Which tags to run on schedule (comma-separated)
+update_tags: "zoxide,fzf,typst"
+
+# When to run (systemd OnCalendar syntax)
+update_oncalendar: "Mon 03:00"
+
+# Working directory for the service
+update_workdir: "{{ ansible_env.HOME }}/System/ansible-playbooks"
+
+# Ansible binary (override if you use a venv)
+ansible_playbook_bin: "/usr/bin/ansible-playbook"

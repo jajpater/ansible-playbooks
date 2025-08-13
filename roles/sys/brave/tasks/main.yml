@@ -1,0 +1,52 @@
+---
+- name: Install curl (required for downloading GPG key)
+  apt:
+    name: curl
+    state: present
+
+- name: Remove conflicting old Brave repository configuration
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/apt/sources.list.d/brave-browser-release.list
+    - /usr/share/keyrings/brave-browser-archive-keyring.gpg
+  notify: update apt cache
+
+- name: Ensure keyring directory exists
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Download Brave GPG key
+  get_url:
+    url: https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
+    dest: /etc/apt/keyrings/brave-browser-archive-keyring.gpg
+    mode: "0644"
+  register: brave_key_downloaded
+
+- name: Add Brave apt repository
+  apt_repository:
+    repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main"
+    state: present
+    filename: brave-browser-release
+  notify: update apt cache
+
+- name: Force update apt cache after repository changes
+  apt:
+    update_cache: yes
+  when: ansible_pkg_mgr == "apt"
+
+- name: Install Brave browser
+  apt:
+    name: brave-browser
+    state: "{{ brave_package_state | default('present') }}"
+  notify: verify brave installation
+
+- name: Ensure Brave is updated to latest version (when requested)
+  apt:
+    name: brave-browser
+    state: latest
+  when: brave_ensure_latest | default(false) | bool
+  notify: verify brave installation

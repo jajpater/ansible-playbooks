@@ -1,0 +1,13 @@
+regolith_arch: "amd64"
+regolith_distro_name: "ubuntu"
+regolith_suite: "stable"
+# Choose 'main' to follow the current release automatically, or pin to e.g. 'v3.3'
+regolith_component: "main"
+
+# Install set: base desktop + X11 flashback session + a default look (can be changed)
+# Added sway for Regolith on Wayland
+regolith_packages:
+  - regolith-desktop
+  - regolith-session-flashback
+  - regolith-session-sway
+  - regolith-look-lascaille

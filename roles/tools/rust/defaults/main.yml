@@ -1,0 +1,46 @@
+---
+# XDG Base Directory Specification compliant paths
+rust_cargo_home: "{{ ansible_env.HOME }}/.local/share/cargo"
+rust_rustup_home: "{{ ansible_env.HOME }}/.local/share/rustup"
+
+# Default Rust toolchain to install
+rust_default_toolchain: "stable"
+
+# Whether to update shell profiles with environment variables
+rust_update_shell_profiles: true
+
+# Shell profile files to update (add more as needed)
+rust_shell_profiles:
+  - "{{ ansible_env.HOME }}/.bashrc"
+  - "{{ ansible_env.HOME }}/.zshrc"
+
+# Whether to update Rust toolchain during role execution
+rust_update_toolchain: false
+
+# Additional Rust components to install (examples: rustfmt, clippy, rust-src, etc.)
+rust_components:
+  - "rustfmt"
+  - "clippy"
+  - "rust-src"
+
+# Cargo configuration settings
+rust_cargo_config:
+  # Use sparse registry for faster downloads (Rust 1.68+)
+  registries:
+    crates-io:
+      protocol: "sparse"
+  
+  # Build configuration
+  build:
+    # Number of parallel jobs (0 = number of logical CPUs)
+    jobs: 0
+    
+  # Network configuration
+  net:
+    retry: 3
+    
+  # Profile configuration
+  profile:
+    release:
+      # Enable link-time optimization for release builds
+      lto: true

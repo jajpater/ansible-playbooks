@@ -1,0 +1,26 @@
+# Root van de TeX Live installatie (XDG)
+texlive_root: "{{ ansible_env.HOME }}/.local/share/texlive"
+
+# tl_year: laat leeg om automatisch te detecteren vanaf CTAN (release-texlive.txt)
+# tl_year: "2025"   # voorbeeld: forceer een jaar
+
+# XDG directories
+texmfhome_dir: "{{ ansible_env.HOME }}/.local/share/texmf"
+texmfvar_dir: "{{ ansible_env.HOME }}/.local/state/texlive/{{ tl_year }}/texmf-var"
+texmfconfig_dir: "{{ ansible_env.HOME }}/.config/texlive/{{ tl_year }}/texmf-config"
+
+# Installatieschema: scheme-small | scheme-medium | scheme-full | scheme-basic | scheme-minimal
+texlive_scheme: "scheme-medium"
+
+# (Optioneel) extra collections en losse packages om na installatie te installeren
+texlive_collections: []
+texlive_packages: []
+
+# Repository voor tlmgr
+tlmgr_repo: "https://mirror.ctan.org/systems/texlive/tlnet"
+
+# Na installatie meteen updaten met tlmgr --self --all
+texlive_update_after_install: true
+
+# Snippet met PATH/ENV in ~/.config/zsh/texlive.zsh
+texlive_write_profile_snippet: true

@@ -1,0 +1,12 @@
+---
+# Include installation method-specific tasks
+- name: Include deb installation tasks
+  include_tasks: install_deb.yml
+  when: deskflow_install_method == "deb"
+
+- name: Include Flatpak installation tasks
+  include_tasks: install_flatpak.yml
+  when: deskflow_install_method == "flatpak"
+
+- name: Verify installation
+  include_tasks: verify.yml

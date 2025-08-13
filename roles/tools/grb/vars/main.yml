@@ -1,0 +1,5 @@
+grb_repo: "https://github.com/LukeSmithxyz/grb.git"
+grb_version: "master"                           # of een tag, bv. "v1.2.3"
+grb_src: "{{ ansible_env.HOME }}/.local/src/grb"
+grb_prefix: "{{ ansible_env.HOME }}/.local"
+grb_bin: "{{ grb_prefix }}/bin/grb"

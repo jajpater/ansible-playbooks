@@ -1,0 +1,47 @@
+---
+# Neovide GUI installation and configuration defaults
+
+# Version to install (use 'latest' for most recent release)
+neovide_version: "latest"
+
+# Installation method: 'appimage' (portable) or 'tarball' (extract to bin)
+neovide_install_method: "appimage"
+
+# Installation directory for Neovide
+neovide_install_dir: "{{ ansible_env.HOME }}/.local"
+
+# Whether to update Neovide if already installed
+neovide_force_update: false
+
+# Whether to create desktop entry
+neovide_create_desktop_entry: true
+
+# Whether to make Neovide executable available in PATH
+neovide_add_to_path: true
+
+# Default Neovim binary for Neovide to use
+neovide_nvim_path: "{{ ansible_env.HOME }}/.local/bin/nvim"
+
+# Neovide configuration directory
+neovide_config_dir: "{{ ansible_env.HOME }}/.config/neovide"
+
+# Whether to initialize basic Neovide configuration
+neovide_init_config: false
+
+# Basic Neovide configuration (if neovide_init_config is true)
+neovide_basic_config:
+  # Window settings
+  transparency: 0.95
+  # Cursor settings  
+  cursor_animation_length: 0.13
+  cursor_trail_size: 0.8
+  cursor_antialiasing: true
+  # Font settings
+  font_size: 12
+  # Performance
+  refresh_rate: 60
+  idle_refresh_rate: 5
+
+# GitHub repository for releases
+neovide_github_repo: "neovide/neovide"
+neovide_github_api_url: "https://api.github.com/repos/{{ neovide_github_repo }}"

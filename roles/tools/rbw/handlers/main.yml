@@ -1,0 +1,14 @@
+---
+# Handlers for tools/rbw role
+
+- name: verify rbw installation
+  command: "{{ rbw_cargo_path }}/rbw --version"
+  environment: "{{ rbw_environment }}"
+  changed_when: false
+  listen: verify rbw installation
+
+- name: verify rofi-rbw installation  
+  command: "{{ rofi_rbw_script_path }} --version"
+  environment: "{{ rbw_environment }}"
+  changed_when: false
+  listen: verify rofi-rbw installation

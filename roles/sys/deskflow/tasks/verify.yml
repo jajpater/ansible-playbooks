@@ -1,0 +1,46 @@
+---
+- name: Check if Deskflow is installed via deb package
+  command: dpkg -l deskflow
+  register: deb_check
+  failed_when: false
+  changed_when: false
+  when: deskflow_install_method == "deb"
+
+- name: Check if Deskflow is installed via Flatpak (user)
+  shell: su - "$SUDO_USER" -c "flatpak list --user | grep org.deskflow.deskflow"
+  register: flatpak_user_check
+  failed_when: false
+  changed_when: false
+  when: deskflow_install_method == "flatpak"
+
+- name: Check if Deskflow is installed via Flatpak (system)
+  command: flatpak list --system | grep org.deskflow.deskflow
+  register: flatpak_system_check
+  failed_when: false
+  changed_when: false
+  when: deskflow_install_method == "flatpak"
+
+- name: Set Flatpak installation status
+  set_fact:
+    flatpak_installed: "{{ (flatpak_user_check.rc == 0) or (flatpak_system_check.rc == 0) }}"
+  when: deskflow_install_method == "flatpak"
+
+- name: Display deb installation status
+  debug:
+    msg: >-
+      {% if deb_check.rc == 0 -%}
+      Deskflow is installed successfully via deb package.
+      {%- else -%}
+      Deskflow deb package installation may have failed.
+      {%- endif %}
+  when: deskflow_install_method == "deb"
+
+- name: Display Flatpak installation status
+  debug:
+    msg: >-
+      {% if flatpak_installed -%}
+      Deskflow is installed successfully via Flatpak.
+      {%- else -%}
+      Deskflow Flatpak installation may have failed.
+      {%- endif %}
+  when: deskflow_install_method == "flatpak"

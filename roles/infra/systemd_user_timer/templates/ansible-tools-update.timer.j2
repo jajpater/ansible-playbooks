@@ -1,0 +1,9 @@
+[Unit]
+Description=Weekly Ansible user-tools update
+
+[Timer]
+OnCalendar={{ update_oncalendar }}
+Persistent=true
+
+[Install]
+WantedBy=default.target

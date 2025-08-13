@@ -1,0 +1,214 @@
+---
+- name: Check for required system packages
+  block:
+    - name: Check if required packages are installed
+      command: dpkg -l {{ item }}
+      register: neovim_package_check
+      changed_when: false
+      failed_when: false
+      loop:
+        - curl
+        - wget
+        - tar
+        - xz-utils
+      tags: [neovim, dependencies]
+
+    - name: Warn about missing system packages
+      debug:
+        msg: |
+          WARNING: Package {{ item.item }} is not installed.
+          Please run: sudo apt install {{ item.item }}
+      when: item.rc != 0
+      loop: "{{ neovim_package_check.results }}"
+      tags: [neovim, dependencies]
+
+- name: Get latest Neovim release info
+  uri:
+    url: "{{ neovim_github_api_url }}/releases/latest"
+    method: GET
+    return_content: true
+    body_format: json
+  register: neovim_latest_release
+  when: neovim_version == "latest"
+  tags: [neovim]
+
+- name: Get specific Neovim release info
+  uri:
+    url: "{{ neovim_github_api_url }}/releases/tags/{{ neovim_version }}"
+    method: GET
+    return_content: true
+    body_format: json
+  register: neovim_specific_release
+  when: neovim_version != "latest"
+  tags: [neovim]
+
+- name: Set Neovim release facts
+  set_fact:
+    neovim_release: "{{ neovim_latest_release if neovim_version == 'latest' else neovim_specific_release }}"
+    neovim_target_version: "{{ neovim_latest_release.json.tag_name if neovim_version == 'latest' else neovim_version }}"
+  tags: [neovim]
+
+- name: Check current Neovim version
+  command: "{{ neovim_install_dir }}/bin/nvim --version"
+  register: neovim_current_version
+  changed_when: false
+  failed_when: false
+  tags: [neovim]
+
+- name: Determine if Neovim update is needed
+  set_fact:
+    neovim_needs_install: >-
+      {{ neovim_current_version.rc != 0 or 
+         neovim_force_update or 
+         neovim_target_version not in neovim_current_version.stdout }}
+  tags: [neovim]
+
+- name: Display current status
+  debug:
+    msg: |
+      Current Neovim: {{ 'Not installed' if neovim_current_version.rc != 0 else neovim_current_version.stdout.split('\n')[0] }}
+      Target version: {{ neovim_target_version }}
+      Action: {{ 'Install/Update' if neovim_needs_install else 'Skip (already installed)' }}
+  tags: [neovim]
+
+- name: Download and install Neovim
+  when: neovim_needs_install
+  block:
+    - name: Find Linux x86_64 tarball download URL
+      set_fact:
+        neovim_download_url: >-
+          {{ item.browser_download_url }}
+      when: "'linux-x86_64.tar.gz' in item.browser_download_url"
+      loop: "{{ neovim_release.json.assets }}"
+      tags: [neovim]
+
+    - name: Create temporary directory for download
+      tempfile:
+        state: directory
+        prefix: "neovim_install_"
+      register: neovim_temp_dir
+      tags: [neovim]
+
+    - name: Download Neovim tarball
+      get_url:
+        url: "{{ neovim_download_url }}"
+        dest: "{{ neovim_temp_dir.path }}/nvim.tar.gz"
+        mode: '0644'
+        timeout: 300
+      tags: [neovim]
+
+    - name: Ensure installation directories exist
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - "{{ neovim_install_dir }}/bin"
+        - "{{ neovim_install_dir }}/lib"
+        - "{{ neovim_install_dir }}/share"
+      tags: [neovim]
+
+    - name: Extract Neovim tarball
+      unarchive:
+        src: "{{ neovim_temp_dir.path }}/nvim.tar.gz"
+        dest: "{{ neovim_temp_dir.path }}"
+        remote_src: true
+        creates: "{{ neovim_temp_dir.path }}/nvim-linux-x86_64"
+      tags: [neovim]
+
+    - name: Install Neovim files
+      shell: |
+        cd "{{ neovim_temp_dir.path }}/nvim-linux-x86_64"
+        cp -rf bin/* "{{ neovim_install_dir }}/bin/"
+        cp -rf lib/* "{{ neovim_install_dir }}/lib/"
+        cp -rf share/* "{{ neovim_install_dir }}/share/"
+      args:
+        executable: /bin/bash
+      tags: [neovim]
+
+    - name: Cleanup temporary directory
+      file:
+        path: "{{ neovim_temp_dir.path }}"
+        state: absent
+      tags: [neovim]
+
+- name: Create Neovim configuration directory
+  file:
+    path: "{{ neovim_config_dir }}"
+    state: directory
+    mode: '0755'
+  tags: [neovim, config]
+
+- name: Initialize basic Neovim configuration
+  copy:
+    content: "{{ neovim_basic_init }}"
+    dest: "{{ neovim_config_dir }}/init.lua"
+    mode: '0644'
+    backup: true
+  when: neovim_init_config and not (neovim_config_dir + '/init.lua') is exists
+  tags: [neovim, config]
+
+- name: Create desktop entry for Neovim
+  copy:
+    content: |
+      [Desktop Entry]
+      Name=Neovim
+      Comment=Vim-based text editor
+      TryExec={{ neovim_install_dir }}/bin/nvim
+      Exec=gnome-terminal -e "{{ neovim_install_dir }}/bin/nvim %F"
+      Terminal=false
+      Type=Application
+      Keywords=Text;editor;
+      Icon=nvim
+      Categories=Utility;TextEditor;Development;
+      StartupNotify=false
+      MimeType=text/english;text/plain;text/x-makefile;text/x-c++hdr;text/x-c++src;text/x-chdr;text/x-csrc;text/x-java;text/x-moc;text/x-pascal;text/x-tcl;text/x-tex;application/x-shellscript;text/x-c;text/x-c++;
+    dest: "{{ ansible_env.HOME }}/.local/share/applications/nvim.desktop"
+    mode: '0644'
+  when: neovim_create_desktop_entry
+  tags: [neovim, desktop]
+
+- name: Setup shell aliases for vi/vim (if requested)
+  lineinfile:
+    path: "{{ item.0 }}"
+    line: "alias {{ item.1 }}='{{ neovim_install_dir }}/bin/nvim'"
+    regexp: "^alias {{ item.1 }}="
+    create: true
+    mode: '0644'
+  loop: "{{ shell_files | product(aliases) | list }}"
+  vars:
+    shell_files:
+      - "{{ ansible_env.HOME }}/.bashrc"
+      - "{{ ansible_env.HOME }}/.zshrc"
+    aliases:
+      - vi
+      - vim
+  when: neovim_setup_alternatives
+  tags: [neovim, aliases]
+
+- name: Verify Neovim installation
+  command: "{{ neovim_install_dir }}/bin/nvim --version"
+  register: neovim_verify_result
+  changed_when: false
+  tags: [neovim, verify]
+
+- name: Display installation verification
+  debug:
+    msg: |
+      ✅ Neovim installation verified!
+      
+      📍 Installation Details:
+      • Version: {{ neovim_verify_result.stdout.split('\n')[0] }}
+      • Binary: {{ neovim_install_dir }}/bin/nvim  
+      • Config: {{ neovim_config_dir }}/
+      
+      🚀 Next Steps:
+      1. Start Neovim with: {{ neovim_install_dir }}/bin/nvim
+      2. For GUI experience, consider installing Neovide or FVim
+      3. Configure Neovim by editing {{ neovim_config_dir }}/init.lua
+      
+      💡 Quick Commands:
+      • nvim --version     (check version)
+      • nvim .             (edit current directory)
+      • nvim file.txt      (edit a file)
+  tags: [neovim, verify]

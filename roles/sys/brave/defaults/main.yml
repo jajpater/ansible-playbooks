@@ -1,0 +1,10 @@
+---
+# Default state for the Brave package (present, latest, absent)
+brave_package_state: present
+
+# Set to true to always ensure the latest version is installed
+brave_ensure_latest: false
+
+# Brave browser repository configuration
+brave_repo_url: "https://brave-browser-apt-release.s3.brave.com/"
+brave_gpg_key_url: "https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg"

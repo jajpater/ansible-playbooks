@@ -1,0 +1,16 @@
+---
+# Deskflow version to install ('latest' or specific version like '1.23.0')
+deskflow_version: latest
+
+# Package state (present, latest, absent)
+deskflow_package_state: present
+
+# Installation method ('deb' or 'flatpak')
+deskflow_install_method: deb
+
+# Update package cache before installation
+deskflow_update_cache: yes
+
+# Flatpak-specific settings
+deskflow_flatpak_remote: flathub
+deskflow_flatpak_app_id: org.deskflow.Deskflow

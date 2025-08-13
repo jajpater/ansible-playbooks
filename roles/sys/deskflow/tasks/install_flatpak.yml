@@ -1,0 +1,74 @@
+---
+- name: Check system architecture
+  set_fact:
+    deskflow_arch: "{{ 'x86_64' if ansible_architecture == 'x86_64' else 'aarch64' }}"
+
+- name: Get latest release information from GitHub API
+  uri:
+    url: "https://api.github.com/repos/deskflow/deskflow/releases/latest"
+    method: GET
+    return_content: yes
+  register: deskflow_release_info
+  when: deskflow_version == "latest"
+
+- name: Set version from API response
+  set_fact:
+    deskflow_version_resolved: "{{ deskflow_release_info.json.tag_name | regex_replace('^v', '') }}"
+  when: deskflow_version == "latest"
+
+- name: Set explicit version
+  set_fact:
+    deskflow_version_resolved: "{{ deskflow_version | regex_replace('^v', '') }}"
+  when: deskflow_version != "latest"
+
+- name: Ensure Flatpak is installed
+  apt:
+    name: flatpak
+    state: present
+    update_cache: "{{ deskflow_update_cache }}"
+
+- name: Create temporary directory for download
+  tempfile:
+    state: directory
+    suffix: _deskflow_flatpak
+  register: temp_dir
+
+- name: Set Flatpak download URL
+  set_fact:
+    deskflow_flatpak_url: "https://github.com/deskflow/deskflow/releases/download/v{{ deskflow_version_resolved }}/deskflow-{{ deskflow_version_resolved }}-linux-{{ deskflow_arch }}.flatpak"
+
+- name: Set Flatpak filename
+  set_fact:
+    deskflow_flatpak_file: "{{ temp_dir.path }}/deskflow-{{ deskflow_version_resolved }}.flatpak"
+
+- name: Download Deskflow Flatpak
+  get_url:
+    url: "{{ deskflow_flatpak_url }}"
+    dest: "{{ deskflow_flatpak_file }}"
+    mode: '0644'
+    timeout: 60
+  register: download_result
+
+- name: Copy Flatpak to user-accessible location
+  copy:
+    src: "{{ deskflow_flatpak_file }}"
+    dest: "/tmp/deskflow-{{ deskflow_version_resolved }}.flatpak"
+    mode: '0644'
+    remote_src: yes
+  register: user_flatpak_file
+
+- name: Install Deskflow Flatpak
+  shell: su - "$SUDO_USER" -c "flatpak install --user --noninteractive '/tmp/deskflow-{{ deskflow_version_resolved }}.flatpak'"
+  register: flatpak_install_result
+  changed_when: "'Nothing to do' not in flatpak_install_result.stdout"
+
+- name: Clean up user-accessible Flatpak file
+  file:
+    path: "/tmp/deskflow-{{ deskflow_version_resolved }}.flatpak"
+    state: absent
+
+- name: Clean up temporary directory
+  file:
+    path: "{{ temp_dir.path }}"
+    state: absent
+  when: temp_dir.path is defined

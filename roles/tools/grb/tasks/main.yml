@@ -1,0 +1,37 @@
+- name: Ensure dirs exist
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ grb_prefix }}/bin"
+    - "{{ ansible_env.HOME }}/.local/src"
+  tags: [grb]
+
+- name: Clone/update grb
+  git:
+    repo: "{{ grb_repo }}"
+    dest: "{{ grb_src }}"
+    version: "{{ grb_version }}"
+    update: true
+  register: grb_git
+  tags: [grb]
+
+- name: Check if installed
+  stat:
+    path: "{{ grb_bin }}"
+  register: grb_stat
+  tags: [grb]
+
+- name: Build & install if needed
+  command: make PREFIX="{{ grb_prefix }}" install
+  args:
+    chdir: "{{ grb_src }}"
+  when: grb_git.changed or not grb_stat.stat.exists
+  tags: [grb]
+
+- name: Verify
+  command: "{{ grb_bin }} -h"
+  changed_when: false
+  failed_when: false  # grb returns exit code 2 when showing help
+  tags: [grb]

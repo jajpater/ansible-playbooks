@@ -1,0 +1,9 @@
+[Unit]
+Description=Update user tools via Ansible
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory={{ update_workdir }}
+EnvironmentFile=%h/.config/ansible/env
+ExecStart={{ ansible_playbook_bin }} {{ update_playbook_path }} -t {{ update_tags }}

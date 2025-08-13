@@ -1,0 +1,21 @@
+- name: Update apt cache (idempotent, 24h valid)
+  apt:
+    update_cache: yes
+    cache_valid_time: 86400
+
+- name: Remove bundled games you marked as unnecessary
+  apt:
+    name: ['aisleriot', 'gnome-mahjongg', 'gnome-mines', 'gnome-sudoku', 'remmina']
+    state: absent
+
+- name: Install packages
+  apt:
+    name: "{{ apt_packages }}"
+    state: present
+
+- name: Upgrade safe
+  apt:
+    upgrade: safe
+  register: apt_upgrade
+  failed_when: false
+  changed_when: apt_upgrade.stdout is defined and ('The following packages will be upgraded:' in apt_upgrade.stdout or apt_upgrade.stdout_lines | length > 0)

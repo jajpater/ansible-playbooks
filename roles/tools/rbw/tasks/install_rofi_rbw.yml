@@ -1,0 +1,85 @@
+---
+# Install rofi-rbw via pip
+
+- name: Check if rofi-rbw is already installed
+  command: "{{ rofi_rbw_script_path }} --version"
+  register: rofi_rbw_current
+  failed_when: false
+  changed_when: false
+  environment: "{{ rbw_environment }}"
+  tags:
+    - rofi-rbw
+    - install
+
+- name: Parse current rofi-rbw version
+  set_fact:
+    rofi_rbw_installed_version: "{{ rofi_rbw_current.stdout.split()[1] }}"
+  when: rofi_rbw_current.rc == 0
+  tags:
+    - rofi-rbw
+    - install
+
+- name: Display current rofi-rbw installation status  
+  debug:
+    msg: |
+      rofi-rbw installation status:
+      - Installed: {{ rofi_rbw_current.rc == 0 }}
+      {% if rofi_rbw_current.rc == 0 %}
+      - Current version: {{ rofi_rbw_installed_version }}
+      {% endif %}
+      - Update mode: {{ rofi_rbw_update_mode }}
+  tags:
+    - rofi-rbw
+    - install
+
+- name: Install or update rofi-rbw via pipx
+  command: >
+    {{ rbw_pip_path }} install
+    {% if rofi_rbw_update_mode in ['always', 'force'] %}--force{% endif %}
+    rofi-rbw
+  register: rofi_rbw_install_result
+  environment: "{{ rbw_environment }}"
+  when: >
+    rofi_rbw_current.rc != 0 or
+    (rofi_rbw_update_mode in ['always', 'force']) or
+    (rofi_rbw_update_mode == 'auto' and rofi_rbw_auto_update | bool)
+  notify:
+    - verify rofi-rbw installation
+  tags:
+    - rofi-rbw
+    - install
+
+- name: Display rofi-rbw installation result
+  debug:
+    msg: |
+      rofi-rbw installation completed:
+      {% if rofi_rbw_install_result.changed %}
+      - Action taken: {{ 'Updated' if rofi_rbw_current.rc == 0 else 'Installed' }}
+      - Installation successful
+      {% else %}
+      - No action taken (already installed and update not requested)
+      {% endif %}
+  when: rofi_rbw_install_result is defined
+  tags:
+    - rofi-rbw
+    - install
+
+- name: Create rofi-rbw config directory
+  file:
+    path: "{{ rofi_rbw_config_dir }}"
+    state: directory
+    mode: '0755'
+  tags:
+    - rofi-rbw
+    - config
+
+- name: Template rofi-rbw configuration
+  template:
+    src: rofi-rbw.rc.j2
+    dest: "{{ rofi_rbw_config_dir }}/rc"
+    mode: '0644'
+    backup: true
+  when: rofi_rbw_create_config | bool
+  tags:
+    - rofi-rbw
+    - config

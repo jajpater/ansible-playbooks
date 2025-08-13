@@ -1,0 +1,96 @@
+- name: Query latest release
+  uri:
+    url: "https://api.github.com/repos/{{ repo }}/releases/latest"
+    headers: >-
+      {%- set h = {'Accept': 'application/vnd.github+json'} -%}
+      {%- if github_token is defined and github_token|length > 0 -%}
+      {{ h.update({'Authorization': 'Bearer ' ~ github_token}) or h }}
+      {%- else -%}
+      {{ h }}
+      {%- endif -%}
+    return_content: true
+  register: gh
+  failed_when: gh.status not in [200]
+
+- name: Pick asset by regex
+  vars:
+    assets: "{{ gh.json.assets | default([]) }}"
+  set_fact:
+    asset_obj: "{{ (assets | selectattr('name','search', asset_regex) | list | first) | default({}) }}"
+    version: "{{ gh.json.tag_name | default('v0.0.0') }}"
+
+- name: Fail if no asset found
+  fail:
+    msg: "No asset matching regex '{{ asset_regex }}' in repo {{ repo }} release {{ gh.json.tag_name }}"
+  when: asset_obj is not mapping or (asset_obj|length) == 0
+
+- name: Set install dir
+  set_fact:
+    install_dir_final: "{{ install_dir | default(ansible_env.HOME + '/.local/opt/' + name) }}"
+
+- name: Set version and package paths
+  set_fact:
+    version_dir: "{{ (install_dir_final + '/' + version) | regex_replace('//','/') }}"
+
+- name: Set package path
+  set_fact:
+    pkg_path: "{{ version_dir + '/' + asset_obj.name }}"
+
+- name: Create version dir
+  file:
+    path: "{{ version_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Download asset
+  get_url:
+    url: "{{ asset_obj.browser_download_url }}"
+    dest: "{{ pkg_path }}"
+    mode: "0755"
+
+- name: Decide if archive
+  set_fact:
+    is_archive: "{{ pkg_path is regex('.*(\\.tar\\.gz|\\.tgz|\\.tar\\.xz|\\.zip)$') }}"
+
+- name: Unarchive package (if archive)
+  unarchive:
+    src: "{{ pkg_path }}"
+    dest: "{{ version_dir }}"
+    remote_src: true
+    extra_opts: "{{ extra_unarchive_opts | default([]) }}"
+  when: is_archive
+
+- name: Place single binary (if not archive)
+  copy:
+    src: "{{ pkg_path }}"
+    dest: "{{ version_dir }}/{{ bin_relpath }}"
+    mode: "0755"
+    remote_src: true
+  when: not is_archive
+
+- name: Ensure ~/.local/bin exists
+  file:
+    path: "{{ ansible_env.HOME }}/.local/bin"
+    state: directory
+    mode: "0755"
+
+- name: Create/force symlink in ~/.local/bin
+  file:
+    src: "{{ version_dir }}/{{ bin_relpath }}"
+    dest: "{{ ansible_env.HOME }}/.local/bin/{{ name }}"
+    state: link
+    force: true
+  when: not (skip_symlink | default(false) | bool)
+
+- name: Prune old versions (keep current)
+  find:
+    paths: "{{ install_dir_final }}"
+    file_type: directory
+    recurse: false
+  register: found_versions
+
+- name: Remove outdated dirs
+  file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ found_versions.files | rejectattr('path','search', version ~ '$') | list }}"

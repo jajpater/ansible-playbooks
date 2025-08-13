@@ -1,0 +1,224 @@
+---
+- name: Check for required system packages
+  block:
+    - name: Check if required packages are installed
+      command: dpkg -l {{ item }}
+      register: fvim_package_check
+      changed_when: false
+      failed_when: false
+      loop:
+        - curl
+        - wget
+        - ca-certificates
+        - libicu70   # or libicu66/libicu67 depending on Ubuntu version
+        - libssl3    # or libssl1.1 for older versions
+        - libfontconfig1
+        - libfreetype6
+      tags: [fvim, dependencies]
+
+    - name: Warn about missing system packages
+      debug:
+        msg: |
+          WARNING: Package {{ item.item }} is not installed or wrong version.
+          You may need to install: sudo apt install {{ item.item }}
+          Note: ICU and SSL library versions may vary by Ubuntu release.
+      when: item.rc != 0
+      loop: "{{ fvim_package_check.results }}"
+      tags: [fvim, dependencies]
+
+- name: Check if Neovim is available
+  stat:
+    path: "{{ fvim_nvim_path }}"
+  register: neovim_binary_check
+  tags: [fvim, dependencies]
+
+- name: Warn if Neovim is not found
+  debug:
+    msg: |
+      WARNING: Neovim not found at {{ fvim_nvim_path }}
+      FVim requires Neovim to be installed first.
+      Install with: ansible-playbook user.yml --tags neovim
+  when: not neovim_binary_check.stat.exists
+  tags: [fvim, dependencies]
+
+- name: Get latest FVim release info
+  uri:
+    url: "{{ fvim_github_api_url }}/releases/latest"
+    method: GET
+    return_content: true
+    body_format: json
+  register: fvim_latest_release
+  when: fvim_version == "latest"
+  tags: [fvim]
+
+- name: Get specific FVim release info
+  uri:
+    url: "{{ fvim_github_api_url }}/releases/tags/{{ fvim_version }}"
+    method: GET
+    return_content: true
+    body_format: json
+  register: fvim_specific_release
+  when: fvim_version != "latest"
+  tags: [fvim]
+
+- name: Set FVim release facts
+  set_fact:
+    fvim_release: "{{ fvim_latest_release if fvim_version == 'latest' else fvim_specific_release }}"
+    fvim_target_version: "{{ fvim_latest_release.json.tag_name if fvim_version == 'latest' else fvim_version }}"
+  tags: [fvim]
+
+- name: Check current FVim installation
+  command: which fvim
+  register: fvim_current_check
+  changed_when: false
+  failed_when: false
+  tags: [fvim]
+
+- name: Check current FVim version
+  command: fvim --version
+  register: fvim_current_version
+  changed_when: false
+  failed_when: false
+  when: fvim_current_check.rc == 0
+  tags: [fvim]
+
+- name: Determine if FVim update is needed
+  set_fact:
+    fvim_needs_install: >-
+      {{ fvim_current_check.rc != 0 or 
+         fvim_force_update or 
+         (fvim_current_version is defined and fvim_target_version not in (fvim_current_version.stdout | default(''))) }}
+  tags: [fvim]
+
+- name: Display current status
+  debug:
+    msg: |
+      Current FVim: {{ 'Not installed' if fvim_current_check.rc != 0 else 'Installed' }}
+      Target version: {{ fvim_target_version }}
+      Action: {{ 'Install/Update' if fvim_needs_install else 'Skip (already installed)' }}
+      Architecture: {{ fvim_arch }}
+  tags: [fvim]
+
+- name: Download and install FVim (Debian package method)
+  when: fvim_needs_install and fvim_install_method == "deb"
+  block:
+    - name: Find Debian package download URL
+      set_fact:
+        fvim_download_url: >-
+          {{ item.browser_download_url }}
+      when: "fvim_arch in item.name and item.name.endswith('.deb')"
+      loop: "{{ fvim_release.json.assets }}"
+      tags: [fvim]
+
+    - name: Debug selected package
+      debug:
+        msg: "Selected FVim package: {{ fvim_download_url | default('No suitable package found') }}"
+      tags: [fvim]
+
+    - name: Fail if no suitable package found
+      fail:
+        msg: |
+          No suitable .deb package found for architecture {{ fvim_arch }}.
+          Available packages: {{ fvim_release.json.assets | map(attribute='name') | list }}
+      when: fvim_download_url is not defined
+      tags: [fvim]
+
+    - name: Create temporary directory for download
+      tempfile:
+        state: directory
+        prefix: "fvim_install_"
+      register: fvim_temp_dir
+      tags: [fvim]
+
+    - name: Download FVim Debian package
+      get_url:
+        url: "{{ fvim_download_url }}"
+        dest: "{{ fvim_temp_dir.path }}/fvim.deb"
+        mode: '0644'
+        timeout: 300
+      tags: [fvim]
+
+    - name: Install FVim Debian package
+      command: dpkg -i {{ fvim_temp_dir.path }}/fvim.deb
+      register: fvim_dpkg_install
+      become: true
+      become_method: sudo
+      tags: [fvim]
+
+    - name: Fix broken dependencies (if any)
+      command: apt-get install -f -y
+      become: true
+      become_method: sudo
+      when: fvim_dpkg_install.rc != 0
+      tags: [fvim]
+
+    - name: Cleanup temporary directory
+      file:
+        path: "{{ fvim_temp_dir.path }}"
+        state: absent
+      tags: [fvim]
+
+- name: Create FVim configuration directory
+  file:
+    path: "{{ fvim_config_dir }}"
+    state: directory
+    mode: '0755'
+  tags: [fvim, config]
+
+- name: Initialize FVim configuration
+  copy:
+    content: |
+      {
+        "font": {
+          "family": "{{ fvim_basic_config.font_family }}",
+          "size": {{ fvim_basic_config.font_size }}
+        },
+        "ui": {
+          "transparency": {{ fvim_basic_config.transparency }},
+          "useIme": {{ fvim_basic_config.use_ime | lower }},
+          "debug": {{ fvim_basic_config.debug | lower }}
+        }
+      }
+    dest: "{{ fvim_config_dir }}/config.json"
+    mode: '0644'
+    backup: true
+  when: fvim_init_config and not (fvim_config_dir + '/config.json') is exists
+  tags: [fvim, config]
+
+- name: Verify FVim installation
+  command: fvim --version
+  register: fvim_verify_result
+  changed_when: false
+  tags: [fvim, verify]
+
+- name: Display installation verification
+  debug:
+    msg: |
+      ✅ FVim installation verified!
+      
+      📍 Installation Details:
+      • Binary: /usr/bin/fvim (system-wide installation)
+      • Method: {{ fvim_install_method }}
+      • Config: {{ fvim_config_dir }}/
+      • Neovim: {{ fvim_nvim_path }}
+      
+      🚀 Next Steps:
+      1. Launch FVim with: fvim
+      2. Or use the desktop entry from your applications menu
+      3. Configure FVim-specific settings in {{ fvim_config_dir }}/config.json
+      
+      💡 Quick Commands:
+      • fvim                      (start FVim)
+      • fvim file.txt             (edit a file)
+      • fvim .                    (edit current directory)
+      • fvim --help               (see all options)
+      
+      🎨 Pro Tips:
+      • FVim offers smooth scrolling and rendering
+      • Configure fonts, transparency, and UI in config.json
+      • FVim supports ligatures and advanced text rendering
+      • Use Ctrl+Shift+P for command palette (if configured in Neovim)
+      
+      ⚠️ Note: FVim uses system-wide installation (.deb package)
+      This requires sudo privileges but integrates better with the system.
+  tags: [fvim, verify]

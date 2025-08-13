@@ -1,0 +1,2 @@
+# If true, write a small zsh init snippet to ~/.config/zsh/zoxide.zsh
+zoxide_write_profile_snippet: false

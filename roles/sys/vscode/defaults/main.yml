@@ -1,0 +1,10 @@
+---
+# Default state for the VSCode package (present, latest, absent)
+vscode_package_state: present
+
+# Set to true to always ensure the latest version is installed
+vscode_ensure_latest: false
+
+# Visual Studio Code repository configuration
+vscode_repo_url: "https://packages.microsoft.com/repos/code"
+vscode_gpg_key_url: "https://packages.microsoft.com/keys/microsoft.asc"

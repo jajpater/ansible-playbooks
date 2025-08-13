@@ -1,0 +1,17 @@
+---
+- name: Ensure snapd is installed (for safety)
+  apt:
+    name: snapd
+    state: present
+  become: true
+
+- name: Install classic snaps
+  community.general.snap:
+    name: ['bitwarden', 'bw', 'emacs', 'tmux', 'maildir-utils', 'offlineimap', 'fwupd']
+    classic: yes
+    state: present
+
+- name: Install regular snaps
+  community.general.snap:
+    name: ['scantailor-advanced']
+    state: present

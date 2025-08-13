@@ -1,0 +1,20 @@
+---
+- name: verify deskflow installation
+  command: deskflow --version
+  register: deskflow_version_output
+  failed_when: false
+  changed_when: false
+  listen: "verify deskflow installation"
+
+- name: display deskflow version
+  debug:
+    msg: "Deskflow installed: {{ deskflow_version_output.stdout | default('Version check failed') }}"
+  listen: "verify deskflow installation"
+
+- name: check deskflow service status
+  systemd:
+    name: deskflow
+    state: started
+    enabled: yes
+  failed_when: false
+  listen: "verify deskflow installation"

@@ -1,0 +1,62 @@
+---
+- name: Create temporary directory for download
+  tempfile:
+    state: directory
+    suffix: _deskflow
+  register: temp_dir
+
+- name: Check system architecture
+  set_fact:
+    deskflow_arch: "{{ 'x86_64' if ansible_architecture == 'x86_64' else 'aarch64' }}"
+
+- name: Get latest release information from GitHub API
+  uri:
+    url: "https://api.github.com/repos/deskflow/deskflow/releases/latest"
+    method: GET
+    return_content: yes
+  register: deskflow_release_info
+  when: deskflow_version == "latest"
+
+- name: Set version from API response
+  set_fact:
+    deskflow_version_resolved: "{{ deskflow_release_info.json.tag_name | regex_replace('^v', '') }}"
+  when: deskflow_version == "latest"
+
+- name: Set explicit version
+  set_fact:
+    deskflow_version_resolved: "{{ deskflow_version | regex_replace('^v', '') }}"
+  when: deskflow_version != "latest"
+
+- name: Determine download URL based on Ubuntu version
+  set_fact:
+    deskflow_download_url: >-
+      {% if ansible_distribution_version is version('25.04', '>=') -%}
+      https://github.com/deskflow/deskflow/releases/download/v{{ deskflow_version_resolved }}/deskflow-{{ deskflow_version_resolved }}-ubuntu-plucky-{{ deskflow_arch }}.deb
+      {%- else -%}
+      https://github.com/deskflow/deskflow/releases/download/v{{ deskflow_version_resolved }}/deskflow-{{ deskflow_version_resolved }}-debian-trixie-{{ deskflow_arch }}.deb
+      {%- endif %}
+
+- name: Set package filename
+  set_fact:
+    deskflow_package_file: "{{ temp_dir.path }}/deskflow-{{ deskflow_version_resolved }}.deb"
+
+- name: Download Deskflow deb package
+  get_url:
+    url: "{{ deskflow_download_url }}"
+    dest: "{{ deskflow_package_file }}"
+    mode: '0644'
+    timeout: 30
+  register: download_result
+
+- name: Install Deskflow package
+  apt:
+    deb: "{{ deskflow_package_file }}"
+    state: "{{ deskflow_package_state }}"
+    update_cache: yes
+  notify: verify deskflow installation
+
+- name: Clean up temporary directory
+  file:
+    path: "{{ temp_dir.path }}"
+    state: absent
+  when: temp_dir.path is defined

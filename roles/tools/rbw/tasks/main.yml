@@ -1,0 +1,16 @@
+---
+# Main tasks file for tools/rbw role
+# Installs rbw (Rust Bitwarden CLI) and rofi-rbw (Rofi frontend)
+
+- name: Include system dependency checks
+  include_tasks: check_dependencies.yml
+
+- name: Include rbw installation tasks
+  include_tasks: install_rbw.yml
+
+- name: Include rofi-rbw installation tasks
+  include_tasks: install_rofi_rbw.yml
+
+- name: Include verification tasks
+  include_tasks: verify.yml
+  when: rbw_verify_installation

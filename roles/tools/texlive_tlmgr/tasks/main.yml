@@ -1,0 +1,134 @@
+- name: Detect TeX Live release year from CTAN (if not provided)
+  uri:
+    url: "https://mirror.ctan.org/systems/texlive/tlnet/release-texlive.txt"
+    return_content: true
+    follow_redirects: all
+  register: tl_release
+  when: tl_year is not defined or (tl_year | string) | length == 0
+
+- name: Set tl_year fact from release file or fallback to current year
+  set_fact:
+    tl_year: "{{ (tl_release.content | regex_search('TeX Live\\s*(\\d{4})', '\\1')) | default(ansible_date_time.year | string) }}"
+  when: (tl_year is not defined or (tl_year | string) | length == 0) and (tl_release is defined)
+
+- name: Map architecture to TeX Live bin dir
+  set_fact:
+    tl_arch: >-
+      {% if ansible_architecture in ['x86_64','amd64'] %}x86_64-linux
+      {% elif ansible_architecture in ['aarch64','arm64'] %}aarch64-linux
+      {% else %}{{ ansible_architecture }}-linux{% endif %}
+    tl_binflag: >-
+      {% if ansible_architecture in ['x86_64','amd64'] %}x86_64-linux
+      {% elif ansible_architecture in ['aarch64','arm64'] %}aarch64-linux
+      {% else %}{{ ansible_architecture }}-linux{% endif %}
+
+- name: Compute install paths
+  set_fact:
+    texdir: "{{ texlive_root }}/{{ tl_year }}"
+    tlmgr_bin: "{{ texlive_root }}/{{ tl_year }}/bin/{{ tl_arch }}/tlmgr"
+    tl_current_dir: "{{ texlive_root }}/current"
+
+- name: Check if TeX Live already installed
+  stat:
+    path: "{{ tlmgr_bin }}"
+  register: tlmgr_stat
+
+- name: Ensure cache dir for installer exists
+  file:
+    path: "{{ ansible_env.HOME }}/.cache/texlive"
+    state: directory
+    mode: "0755"
+
+- name: Download install-tl-unx.tar.gz
+  get_url:
+    url: "https://mirror.ctan.org/systems/texlive/tlnet/install-tl-unx.tar.gz"
+    dest: "{{ ansible_env.HOME }}/.cache/texlive/install-tl-unx.tar.gz"
+    mode: "0644"
+  when: not tlmgr_stat.stat.exists
+
+- name: Unpack installer
+  unarchive:
+    src: "{{ ansible_env.HOME }}/.cache/texlive/install-tl-unx.tar.gz"
+    dest: "{{ ansible_env.HOME }}/.cache/texlive"
+    remote_src: true
+  when: not tlmgr_stat.stat.exists
+
+- name: Find installer directory
+  find:
+    paths: "{{ ansible_env.HOME }}/.cache/texlive"
+    file_type: directory
+    patterns: "install-tl-*"
+    recurse: false
+  register: installer_dirs
+  when: not tlmgr_stat.stat.exists
+
+- name: Set installer path
+  set_fact:
+    installer_path: "{{ (installer_dirs.files | sort(attribute='mtime', reverse=true) | first).path }}"
+  when: not tlmgr_stat.stat.exists
+
+- name: Write TeX Live profile (XDG + year)
+  template:
+    src: "texlive.profile.j2"
+    dest: "{{ installer_path }}/texlive.profile"
+    mode: "0644"
+  when: not tlmgr_stat.stat.exists
+
+- name: Run TeX Live installer (batch mode)
+  command: "./install-tl -profile texlive.profile"
+  args:
+    chdir: "{{ installer_path }}"
+  when: not tlmgr_stat.stat.exists
+
+# post-install config & updates
+- name: Set tlmgr repository
+  command: "{{ tlmgr_bin }} option repository {{ tlmgr_repo }}"
+  changed_when: false
+
+- name: tlmgr update --self --all (optional)
+  command: "{{ tlmgr_bin }} update --self --all"
+  register: tlmgr_update
+  when: texlive_update_after_install | bool
+  changed_when: >-
+    tlmgr_update.stdout is search('update') or
+    tlmgr_update.stdout is search('upgraded') or
+    tlmgr_update.stdout is search('installed')
+
+- name: Install collections (if any)
+  command: "{{ tlmgr_bin }} install {{ item }}"
+  loop: "{{ texlive_collections }}"
+  register: tlmgr_coll
+  changed_when: "'installed:' in (tlmgr_coll.stdout | default('')) or 'installed:' in (tlmgr_coll.results | map(attribute='stdout') | join('\n'))"
+  when: texlive_collections | length > 0
+
+- name: Install extra packages (if any)
+  command: "{{ tlmgr_bin }} install {{ item }}"
+  loop: "{{ texlive_packages }}"
+  register: tlmgr_pkgs
+  changed_when: "'installed:' in (tlmgr_pkgs.stdout | default('')) or 'installed:' in (tlmgr_pkgs.results | map(attribute='stdout') | join('\n'))"
+  when: texlive_packages | length > 0
+
+- name: Symlink 'current' → installed year dir (for stable PATH)
+  file:
+    src: "{{ texdir }}"
+    dest: "{{ tl_current_dir }}"
+    state: link
+    force: true
+
+- name: Ensure ~/.config/zsh exists (for PATH snippet)
+  file:
+    path: "{{ ansible_env.HOME }}/.config/zsh"
+    state: directory
+    mode: "0755"
+  when: texlive_write_profile_snippet | bool
+
+- name: Write zsh PATH snippet (uses 'current' symlink)
+  copy:
+    dest: "{{ ansible_env.HOME }}/.config/zsh/texlive.zsh"
+    mode: "0644"
+    content: |
+      # TeX Live (installed by Ansible)
+      export PATH="{{ tl_current_dir }}/bin/{{ tl_arch }}:$PATH"
+      export MANPATH="{{ tl_current_dir }}/texmf-dist/doc/man:$MANPATH"
+      export INFOPATH="{{ tl_current_dir }}/texmf-dist/doc/info:$INFOPATH"
+  when: texlive_write_profile_snippet | bool

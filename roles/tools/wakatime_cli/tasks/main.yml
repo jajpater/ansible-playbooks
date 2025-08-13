@@ -1,0 +1,82 @@
+- name: Map architecture to wakatime release suffix
+  set_fact:
+    wak_arch: >
+      {%- if ansible_architecture in ['x86_64','amd64'] -%}linux-amd64
+      {%- elif ansible_architecture in ['aarch64','arm64'] -%}linux-arm64
+      {%- elif ansible_architecture in ['armv7l','armv7','armhf'] -%}linux-arm
+      {%- elif ansible_architecture in ['i386','i686'] -%}linux-386
+      {%- else -%}linux-amd64{%- endif -%}
+
+- name: Download & extract wakatime-cli via GitHub latest
+  include_role:
+    name: helpers/github_install
+  vars:
+    name: "wakatime-cli"
+    repo: "wakatime/wakatime-cli"
+    asset_regex: "wakatime-cli-{{ wak_arch | trim }}\\.zip$"
+    skip_symlink: true   # we handle installation manually
+  tags: [wakatime, wakatime-cli]
+
+- name: Locate extracted wakatime-cli binary
+  find:
+    paths: "{{ version_dir }}"
+    file_type: file
+    patterns: "wakatime-cli*"
+    use_regex: false
+  register: wak_find
+
+- name: Fail if wakatime-cli binary not found
+  fail:
+    msg: "Could not find wakatime-cli binary in {{ version_dir }}"
+  when: wak_find.matched | default(0) | int == 0
+
+- name: Install wakatime-cli to ~/.local/bin (symlink to versioned binary)
+  file:
+    src: "{{ (wak_find.files | first).path }}"
+    dest: "{{ ansible_env.HOME }}/.local/bin/wakatime-cli"
+    state: link
+    force: true
+
+- name: Optional compat symlink 'wakatime' -> 'wakatime-cli'
+  file:
+    src: "{{ ansible_env.HOME }}/.local/bin/wakatime-cli"
+    dest: "{{ ansible_env.HOME }}/.local/bin/wakatime"
+    state: link
+    force: true
+  when: wakatime_compat_symlink | bool
+
+# ------------------- Config: ~/.wakatime.cfg -------------------
+- name: Determine effective API key (vars > ENV > ~/.config/ansible/env)
+  set_fact:
+    wak_api_key_effective: >-
+      {{
+        (wakatime_api_key | default('', true))
+        | default(lookup('env','WAKATIME_API_KEY'), true)
+        | default(lookup('ini', 'WAKATIME_API_KEY file=' ~ (ansible_env.HOME ~ '/.config/ansible/env') ~ ' type=properties'), true)
+      }}
+
+- name: Check if ~/.wakatime.cfg exists
+  stat:
+    path: "{{ wakatime_config_path }}"
+  register: wak_cfg
+
+- name: Create ~/.wakatime.cfg with API key (only if missing)
+  template:
+    src: "wakatime.cfg.j2"
+    dest: "{{ wakatime_config_path }}"
+    mode: "0600"
+    force: false
+  when: not wak_cfg.stat.exists and (wak_api_key_effective | length > 0)
+
+- name: Debug note if config exists or api key not provided
+  debug:
+    msg: >-
+      {{
+        wak_cfg.stat.exists
+        | ternary('Existing ~/.wakatime.cfg preserved.','No existing ~/.wakatime.cfg.')
+      }}
+      {{
+        (wak_api_key_effective | length > 0)
+        | ternary('API key available.','No API key provided; skipped creating new config.')
+      }}
+  changed_when: false

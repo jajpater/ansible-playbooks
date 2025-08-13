@@ -1,0 +1,33 @@
+- name: System setup (root)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  become: true
+
+  roles:
+    - role: base/apt_basics
+      tags: [apt_basics]
+
+    - role: sys/snaps
+      tags: [snap]
+
+    - role: sys/google_chrome
+      tags: [chrome]
+
+    - role: sys/regolith
+      tags: [regolith]
+
+    - role: sys/duplicati
+      tags: [duplicati]
+
+    - role: sys/warp
+      tags: [warp]
+
+    - role: sys/brave
+      tags: [brave]
+
+    - role: sys/vscode
+      tags: [vscode]
+
+    - role: sys/deskflow
+      tags: [deskflow]

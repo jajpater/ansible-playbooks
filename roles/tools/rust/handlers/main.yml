@@ -1,0 +1,19 @@
+---
+- name: cleanup rustup installer
+  file:
+    path: /tmp/rustup-init.sh
+    state: absent
+
+- name: verify rust installation
+  shell: |
+    export CARGO_HOME="{{ rust_cargo_home }}"
+    export RUSTUP_HOME="{{ rust_rustup_home }}"
+    export PATH="{{ rust_cargo_home }}/bin:$PATH"
+    rustc --version && cargo --version
+  environment:
+    CARGO_HOME: "{{ rust_cargo_home }}"
+    RUSTUP_HOME: "{{ rust_rustup_home }}"
+    PATH: "{{ rust_cargo_home }}/bin:{{ ansible_env.PATH }}"
+  register: rust_version_output
+  changed_when: false
+  failed_when: rust_version_output.rc != 0

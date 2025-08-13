@@ -1,0 +1,41 @@
+---
+# FVim GUI installation and configuration defaults
+
+# Version to install (use 'latest' for most recent release)
+fvim_version: "latest"
+
+# Installation method: 'deb' (Debian package)
+fvim_install_method: "deb"
+
+# Whether to update FVim if already installed
+fvim_force_update: false
+
+# Whether to create desktop entry (usually handled by .deb package)
+fvim_create_desktop_entry: false
+
+# Default Neovim binary for FVim to use
+fvim_nvim_path: "{{ ansible_env.HOME }}/.local/bin/nvim"
+
+# FVim configuration directory
+fvim_config_dir: "{{ ansible_env.HOME }}/.config/fvim"
+
+# Whether to initialize basic FVim configuration
+fvim_init_config: false
+
+# Basic FVim configuration (if fvim_init_config is true)
+fvim_basic_config:
+  # UI settings
+  font_family: "monospace"
+  font_size: 12
+  # Window settings
+  transparency: 0.95
+  # Performance
+  use_ime: true
+  debug: false
+
+# GitHub repository for releases
+fvim_github_repo: "yatli/fvim"
+fvim_github_api_url: "https://api.github.com/repos/{{ fvim_github_repo }}"
+
+# Architecture detection for package selection
+fvim_arch: "{{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture }}"

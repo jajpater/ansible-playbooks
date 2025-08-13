@@ -1,0 +1,5 @@
+# Channel on updates.duplicati.com: beta (default), canary, experimental
+duplicati_channel: "stable"
+
+# Architecture tag to download; common: linux-x64-gui, linux-arm64-gui
+duplicati_arch: "linux-x64-gui"

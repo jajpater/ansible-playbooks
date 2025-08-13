@@ -1,0 +1,63 @@
+---
+# Default variables for tools/rbw role
+
+# XDG Base Directory specification paths
+rbw_xdg_data_home: "{{ ansible_env.HOME }}/.local/share"
+rbw_xdg_config_home: "{{ ansible_env.HOME }}/.config"
+rbw_xdg_bin_home: "{{ ansible_env.HOME }}/.local/bin"
+
+# Rust/Cargo paths (should match tools/rust role)
+rbw_cargo_home: "{{ rbw_xdg_data_home }}/cargo"
+rbw_rustup_home: "{{ rbw_xdg_data_home }}/rustup"
+rbw_cargo_path: "{{ rbw_cargo_home }}/bin"
+
+# Python package manager (using pipx for externally managed environments)
+rbw_pip_path: "pipx"
+
+# rbw configuration
+rbw_config_dir: "{{ rbw_xdg_config_home }}/rbw"
+rbw_update_mode: "auto"  # auto, always, never, force
+rbw_auto_update: true
+rbw_verify_installation: true
+rbw_require_pinentry: true
+rbw_create_initial_config: false  # Set to true to create initial config
+
+# rbw initial configuration (only used if rbw_create_initial_config is true)
+rbw_config:
+  email: ""  # Set this to your Bitwarden email
+  base_url: "https://api.bitwarden.com/"
+  identity_url: "https://identity.bitwarden.com/"
+  ui_url: "https://vault.bitwarden.com/"
+  notifications_url: "https://notifications.bitwarden.com/"
+  lock_timeout: 3600
+  sync_interval: 3600
+  pinentry: "pinentry"
+
+# rofi-rbw configuration
+rofi_rbw_config_dir: "{{ rbw_xdg_config_home }}/rofi-rbw"
+rofi_rbw_update_mode: "auto"  # auto, always, never, force
+rofi_rbw_auto_update: true
+rofi_rbw_script_path: "{{ rbw_xdg_bin_home }}/rofi-rbw"
+rofi_rbw_create_config: false  # Set to true to create initial config
+
+# rofi-rbw configuration options (only used if rofi_rbw_create_config is true)
+rofi_rbw_config:
+  action: "type"  # type, copy, print
+  target: "password"  # password, username, totp
+  prompt: "rbw"
+  rofi_args: ""
+  clear_after: 10
+  no_symbols: false
+  keybindings:
+    type_all: "kb-custom-1"
+    type_user: "kb-custom-2"  
+    type_pass: "kb-custom-3"
+    copy_all: "kb-custom-4"
+    copy_user: "kb-custom-5"
+    copy_pass: "kb-custom-6"
+
+# Environment variables for installation
+rbw_environment:
+  CARGO_HOME: "{{ rbw_cargo_home }}"
+  RUSTUP_HOME: "{{ rbw_rustup_home }}"
+  PATH: "{{ rbw_cargo_path }}:{{ rbw_xdg_bin_home }}:{{ ansible_env.PATH }}"

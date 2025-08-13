@@ -1,0 +1,49 @@
+# Cargo Configuration - XDG Base Directory Compliant
+# Managed by Ansible - Do not edit manually
+
+{% if rust_cargo_config.registries is defined %}
+[registries]
+{% for registry, config in rust_cargo_config.registries.items() %}
+[registries.{{ registry }}]
+{% for key, value in config.items() %}
+{{ key }} = "{{ value }}"
+{% endfor %}
+
+{% endfor %}
+{% endif %}
+
+{% if rust_cargo_config.build is defined %}
+[build]
+{% for key, value in rust_cargo_config.build.items() %}
+{{ key }} = {{ value }}
+{% endfor %}
+
+{% endif %}
+
+{% if rust_cargo_config.net is defined %}
+[net]
+{% for key, value in rust_cargo_config.net.items() %}
+{{ key }} = {{ value }}
+{% endfor %}
+
+{% endif %}
+
+{% if rust_cargo_config.profile is defined %}
+{% for profile_name, profile_config in rust_cargo_config.profile.items() %}
+[profile.{{ profile_name }}]
+{% for key, value in profile_config.items() %}
+{% if value is boolean %}
+{{ key }} = {{ value | lower }}
+{% elif value is number %}
+{{ key }} = {{ value }}
+{% else %}
+{{ key }} = "{{ value }}"
+{% endif %}
+{% endfor %}
+
+{% endfor %}
+{% endif %}
+
+# XDG Base Directory paths are handled by environment variables:
+# CARGO_HOME="{{ rust_cargo_home }}"
+# RUSTUP_HOME="{{ rust_rustup_home }}"

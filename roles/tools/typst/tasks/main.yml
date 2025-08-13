@@ -1,0 +1,17 @@
+- name: Map architecture to typst release suffix
+  set_fact:
+    typst_arch: >
+      {%- if ansible_architecture in ['x86_64','amd64'] -%}x86_64
+      {%- elif ansible_architecture in ['aarch64','arm64'] -%}aarch64
+      {%- else -%}x86_64{%- endif -%}
+
+- name: Install Typst (GitHub latest)
+  include_role:
+    name: helpers/github_install
+  vars:
+    name: "typst"
+    repo: "typst/typst"
+    asset_regex: "typst-(x86_64|aarch64)-unknown-linux-musl\\.tar\\.xz$"
+    # archive contains directory typst-<arch>-unknown-linux-musl/typst
+    bin_relpath: "typst-{{ typst_arch | trim }}-unknown-linux-musl/typst"
+  tags: [typst]

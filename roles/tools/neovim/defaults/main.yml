@@ -1,0 +1,42 @@
+---
+# Neovim installation and configuration defaults
+
+# Installation method: 'github' (recommended for latest) or 'package' (from distro)
+neovim_install_method: "github"
+
+# Version to install (use 'latest' for most recent release)
+neovim_version: "latest"
+
+# Installation directory for Neovim binary and supporting files  
+neovim_install_dir: "{{ ansible_env.HOME }}/.local"
+
+# Whether to update Neovim if already installed
+neovim_force_update: false
+
+# Whether to create a desktop entry
+neovim_create_desktop_entry: true
+
+# Whether to set up alternatives for 'vi' and 'vim' commands
+neovim_setup_alternatives: true
+
+# XDG-compliant Neovim configuration directory
+neovim_config_dir: "{{ ansible_env.HOME }}/.config/nvim"
+
+# Whether to initialize basic configuration
+neovim_init_config: false
+
+# Basic init.lua content (only used if neovim_init_config is true)
+neovim_basic_init: |
+  -- Basic Neovim configuration
+  vim.opt.number = true
+  vim.opt.relativenumber = true
+  vim.opt.expandtab = true
+  vim.opt.tabstop = 2
+  vim.opt.shiftwidth = 2
+  vim.opt.smartindent = true
+  vim.opt.wrap = false
+  vim.opt.clipboard = "unnamedplus"
+
+# GitHub API settings
+neovim_github_repo: "neovim/neovim"
+neovim_github_api_url: "https://api.github.com/repos/{{ neovim_github_repo }}"

@@ -1,0 +1,278 @@
+---
+- name: Check for required system packages
+  block:
+    - name: Check if required packages are installed
+      command: dpkg -l {{ item }}
+      register: neovide_package_check
+      changed_when: false
+      failed_when: false
+      loop:
+        - curl
+        - wget
+        - tar
+        - libfontconfig1
+        - libfreetype6
+        - libx11-6
+        - libxcursor1
+        - libxrandr2
+        - libxi6
+      tags: [neovide, dependencies]
+
+    - name: Warn about missing system packages
+      debug:
+        msg: |
+          WARNING: Package {{ item.item }} is not installed.
+          Please run: sudo apt install {{ item.item }}
+      when: item.rc != 0
+      loop: "{{ neovide_package_check.results }}"
+      tags: [neovide, dependencies]
+
+- name: Check if Neovim is available
+  stat:
+    path: "{{ neovide_nvim_path }}"
+  register: neovim_binary_check
+  tags: [neovide, dependencies]
+
+- name: Warn if Neovim is not found
+  debug:
+    msg: |
+      WARNING: Neovim not found at {{ neovide_nvim_path }}
+      Neovide requires Neovim to be installed first.
+      Install with: ansible-playbook user.yml --tags neovim
+  when: not neovim_binary_check.stat.exists
+  tags: [neovide, dependencies]
+
+- name: Get latest Neovide release info
+  uri:
+    url: "{{ neovide_github_api_url }}/releases/latest"
+    method: GET
+    return_content: true
+    body_format: json
+  register: neovide_latest_release
+  when: neovide_version == "latest"
+  tags: [neovide]
+
+- name: Get specific Neovide release info
+  uri:
+    url: "{{ neovide_github_api_url }}/releases/tags/{{ neovide_version }}"
+    method: GET
+    return_content: true
+    body_format: json
+  register: neovide_specific_release
+  when: neovide_version != "latest"
+  tags: [neovide]
+
+- name: Set Neovide release facts
+  set_fact:
+    neovide_release: "{{ neovide_latest_release if neovide_version == 'latest' else neovide_specific_release }}"
+    neovide_target_version: "{{ neovide_latest_release.json.tag_name if neovide_version == 'latest' else neovide_version }}"
+  tags: [neovide]
+
+- name: Check current Neovide version (AppImage)
+  command: "{{ neovide_install_dir }}/bin/neovide --version"
+  register: neovide_current_version_appimage
+  changed_when: false
+  failed_when: false
+  when: neovide_install_method == "appimage"
+  tags: [neovide]
+
+- name: Check current Neovide version (binary)
+  command: "{{ neovide_install_dir }}/bin/neovide --version"
+  register: neovide_current_version_binary
+  changed_when: false
+  failed_when: false
+  when: neovide_install_method == "tarball"
+  tags: [neovide]
+
+- name: Set current version fact
+  set_fact:
+    neovide_current_version: "{{ neovide_current_version_appimage if neovide_install_method == 'appimage' else neovide_current_version_binary }}"
+  tags: [neovide]
+
+- name: Determine if Neovide update is needed
+  set_fact:
+    neovide_needs_install: >-
+      {{ neovide_current_version.rc != 0 or 
+         neovide_force_update or 
+         neovide_target_version not in (neovide_current_version.stdout | default('')) }}
+  tags: [neovide]
+
+- name: Display current status
+  debug:
+    msg: |
+      Current Neovide: {{ 'Not installed' if neovide_current_version.rc != 0 else neovide_current_version.stdout.split(' ')[1] if neovide_current_version.stdout.split(' ')|length > 1 else 'Unknown version' }}
+      Target version: {{ neovide_target_version }}
+      Action: {{ 'Install/Update' if neovide_needs_install else 'Skip (already installed)' }}
+      Method: {{ neovide_install_method }}
+  tags: [neovide]
+
+- name: Download and install Neovide (AppImage method)
+  when: neovide_needs_install and neovide_install_method == "appimage"
+  block:
+    - name: Find AppImage download URL
+      set_fact:
+        neovide_download_url: >-
+          {{ item.browser_download_url }}
+      when: "item.name == 'neovide.AppImage'"
+      loop: "{{ neovide_release.json.assets }}"
+      tags: [neovide]
+
+    - name: Ensure bin directory exists
+      file:
+        path: "{{ neovide_install_dir }}/bin"
+        state: directory
+        mode: '0755'
+      tags: [neovide]
+
+    - name: Download Neovide AppImage
+      get_url:
+        url: "{{ neovide_download_url }}"
+        dest: "{{ neovide_install_dir }}/bin/neovide"
+        mode: '0755'
+        timeout: 300
+      tags: [neovide]
+
+- name: Download and install Neovide (tarball method)
+  when: neovide_needs_install and neovide_install_method == "tarball"
+  block:
+    - name: Find Linux tarball download URL
+      set_fact:
+        neovide_download_url: >-
+          {{ item.browser_download_url }}
+      when: "'neovide-linux-x86_64.tar.gz' in item.browser_download_url"
+      loop: "{{ neovide_release.json.assets }}"
+      tags: [neovide]
+
+    - name: Create temporary directory for download
+      tempfile:
+        state: directory
+        prefix: "neovide_install_"
+      register: neovide_temp_dir
+      tags: [neovide]
+
+    - name: Download Neovide tarball
+      get_url:
+        url: "{{ neovide_download_url }}"
+        dest: "{{ neovide_temp_dir.path }}/neovide.tar.gz"
+        mode: '0644'
+        timeout: 300
+      tags: [neovide]
+
+    - name: Ensure bin directory exists
+      file:
+        path: "{{ neovide_install_dir }}/bin"
+        state: directory
+        mode: '0755'
+      tags: [neovide]
+
+    - name: Extract Neovide tarball
+      unarchive:
+        src: "{{ neovide_temp_dir.path }}/neovide.tar.gz"
+        dest: "{{ neovide_temp_dir.path }}"
+        remote_src: true
+      tags: [neovide]
+
+    - name: Install Neovide binary
+      copy:
+        src: "{{ neovide_temp_dir.path }}/neovide"
+        dest: "{{ neovide_install_dir }}/bin/neovide"
+        mode: '0755'
+        remote_src: true
+      tags: [neovide]
+
+    - name: Cleanup temporary directory
+      file:
+        path: "{{ neovide_temp_dir.path }}"
+        state: absent
+      tags: [neovide]
+
+- name: Create Neovide configuration directory
+  file:
+    path: "{{ neovide_config_dir }}"
+    state: directory
+    mode: '0755'
+  tags: [neovide, config]
+
+- name: Initialize Neovide configuration
+  copy:
+    content: |
+      -- Neovide configuration
+      -- Set global variables for Neovide
+      if vim.g.neovide then
+        vim.g.neovide_transparency = {{ neovide_basic_config.transparency }}
+        vim.g.neovide_cursor_animation_length = {{ neovide_basic_config.cursor_animation_length }}
+        vim.g.neovide_cursor_trail_size = {{ neovide_basic_config.cursor_trail_size }}
+        vim.g.neovide_cursor_antialiasing = {{ neovide_basic_config.cursor_antialiasing | lower }}
+        vim.g.neovide_refresh_rate = {{ neovide_basic_config.refresh_rate }}
+        vim.g.neovide_refresh_rate_idle = {{ neovide_basic_config.idle_refresh_rate }}
+        
+        -- Font configuration
+        vim.opt.guifont = "monospace:h{{ neovide_basic_config.font_size }}"
+        
+        -- Key mappings for Neovide
+        vim.keymap.set("n", "<F11>", function()
+          vim.g.neovide_fullscreen = not vim.g.neovide_fullscreen
+        end, { desc = "Toggle fullscreen" })
+      end
+    dest: "{{ neovide_config_dir }}/init.lua"
+    mode: '0644'
+    backup: true
+  when: neovide_init_config and not (neovide_config_dir + '/init.lua') is exists
+  tags: [neovide, config]
+
+- name: Create desktop entry for Neovide
+  copy:
+    content: |
+      [Desktop Entry]
+      Name=Neovide
+      Comment=Neovim GUI client written in Rust
+      TryExec={{ neovide_install_dir }}/bin/neovide
+      Exec={{ neovide_install_dir }}/bin/neovide %F
+      Terminal=false
+      Type=Application
+      Keywords=Text;editor;
+      Icon=neovim
+      Categories=Utility;TextEditor;Development;
+      StartupNotify=false
+      MimeType=text/english;text/plain;text/x-makefile;text/x-c++hdr;text/x-c++src;text/x-chdr;text/x-csrc;text/x-java;text/x-moc;text/x-pascal;text/x-tcl;text/x-tex;application/x-shellscript;text/x-c;text/x-c++;
+      StartupWMClass=neovide
+    dest: "{{ ansible_env.HOME }}/.local/share/applications/neovide.desktop"
+    mode: '0644'
+  when: neovide_create_desktop_entry
+  tags: [neovide, desktop]
+
+- name: Verify Neovide installation
+  command: "{{ neovide_install_dir }}/bin/neovide --version"
+  register: neovide_verify_result
+  changed_when: false
+  tags: [neovide, verify]
+
+- name: Display installation verification
+  debug:
+    msg: |
+      ✅ Neovide installation verified!
+      
+      📍 Installation Details:
+      • Version: {{ neovide_verify_result.stdout.split(' ')[1] if neovide_verify_result.stdout.split(' ')|length > 1 else 'Unknown' }}
+      • Binary: {{ neovide_install_dir }}/bin/neovide
+      • Method: {{ neovide_install_method }}
+      • Config: {{ neovide_config_dir }}/
+      • Neovim: {{ neovide_nvim_path }}
+      
+      🚀 Next Steps:
+      1. Launch Neovide with: {{ neovide_install_dir }}/bin/neovide
+      2. Or use the desktop entry from your applications menu
+      3. Configure Neovide-specific settings in your Neovim config
+      
+      💡 Quick Commands:
+      • neovide                   (start Neovide)
+      • neovide file.txt          (edit a file)
+      • neovide .                 (edit current directory)
+      • neovide --help            (see all options)
+      
+      🎨 Pro Tips:
+      • F11 toggles fullscreen
+      • Ctrl+Shift+= increases font size
+      • Ctrl+- decreases font size
+      • Configure transparency, cursor effects, and more in your Neovim config
+  tags: [neovide, verify]

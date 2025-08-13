@@ -1,0 +1,66 @@
+---
+- name: Install required packages for GPG key handling
+  apt:
+    name:
+      - wget
+      - gpg
+    state: present
+
+- name: Remove conflicting old VSCode repository configuration
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/apt/sources.list.d/vscode.list
+    - /usr/share/keyrings/microsoft.gpg
+    - /etc/apt/trusted.gpg.d/microsoft.gpg
+  notify: update apt cache
+
+- name: Ensure keyring directory exists
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Download Microsoft GPG key
+  get_url:
+    url: https://packages.microsoft.com/keys/microsoft.asc
+    dest: /tmp/microsoft.asc
+    mode: "0644"
+  register: vscode_key_downloaded
+
+- name: Convert Microsoft key to binary format
+  command: gpg --dearmor --yes --output /etc/apt/keyrings/packages.microsoft.gpg /tmp/microsoft.asc
+  args:
+    creates: /etc/apt/keyrings/packages.microsoft.gpg
+  when: vscode_key_downloaded.changed or not ansible_check_mode
+
+- name: Remove temporary key file
+  file:
+    path: /tmp/microsoft.asc
+    state: absent
+
+- name: Add Visual Studio Code apt repository
+  apt_repository:
+    repo: "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main"
+    state: present
+    filename: vscode
+  notify: update apt cache
+
+- name: Force update apt cache after repository changes
+  apt:
+    update_cache: yes
+  when: ansible_pkg_mgr == "apt"
+
+- name: Install Visual Studio Code
+  apt:
+    name: code
+    state: "{{ vscode_package_state | default('present') }}"
+  notify: verify vscode installation
+
+- name: Ensure VSCode is updated to latest version (when requested)
+  apt:
+    name: code
+    state: latest
+  when: vscode_ensure_latest | default(false) | bool
+  notify: verify vscode installation

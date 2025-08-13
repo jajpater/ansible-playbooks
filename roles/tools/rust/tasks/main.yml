@@ -1,0 +1,144 @@
+---
+- name: Check if required packages are installed
+  command: dpkg -l {{ item }}
+  register: package_check
+  failed_when: false
+  changed_when: false
+  loop:
+    - curl
+    - build-essential
+
+- name: Warn about missing packages
+  debug:
+    msg: "Warning: {{ item.item }} is not installed. Please install it with 'sudo apt install {{ item.item }}'"
+  when: item.rc != 0
+  loop: "{{ package_check.results }}"
+
+- name: Fail if critical packages are missing
+  fail:
+    msg: "Critical packages missing. Please install: curl build-essential. Run 'sudo apt install curl build-essential'"
+  when: package_check.results | selectattr('rc', 'ne', 0) | list | length > 0
+
+- name: Ensure XDG directories exist
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ ansible_env.HOME }}/.local/share"
+    - "{{ ansible_env.HOME }}/.local/bin"
+    - "{{ ansible_env.HOME }}/.config"
+    - "{{ ansible_env.HOME }}/.cache"
+
+- name: Check if rustup is already installed
+  stat:
+    path: "{{ rust_rustup_home }}/toolchains"
+  register: rustup_installed
+
+- name: Migrate existing non-XDG Rust installation
+  block:
+    - name: Check for existing ~/.cargo directory
+      stat:
+        path: "{{ ansible_env.HOME }}/.cargo"
+      register: old_cargo_dir
+
+    - name: Check for existing ~/.rustup directory
+      stat:
+        path: "{{ ansible_env.HOME }}/.rustup"
+      register: old_rustup_dir
+
+    - name: Migrate ~/.cargo to XDG location
+      command: mv "{{ ansible_env.HOME }}/.cargo" "{{ rust_cargo_home }}"
+      when: old_cargo_dir.stat.exists and not rustup_installed.stat.exists
+
+    - name: Migrate ~/.rustup to XDG location
+      command: mv "{{ ansible_env.HOME }}/.rustup" "{{ rust_rustup_home }}"
+      when: old_rustup_dir.stat.exists and not rustup_installed.stat.exists
+
+    - name: Create cargo config directory for migration
+      file:
+        path: "{{ ansible_env.HOME }}/.config/cargo"
+        state: directory
+        mode: "0755"
+      when: old_cargo_dir.stat.exists or old_rustup_dir.stat.exists
+
+    - name: Update migrated cargo config for XDG paths
+      template:
+        src: cargo_config.toml.j2
+        dest: "{{ ansible_env.HOME }}/.config/cargo/config.toml"
+        mode: "0644"
+      when: old_cargo_dir.stat.exists or old_rustup_dir.stat.exists
+  when: not rustup_installed.stat.exists
+
+- name: Download rustup installer
+  get_url:
+    url: https://sh.rustup.rs
+    dest: /tmp/rustup-init.sh
+    mode: "0755"
+  when: not rustup_installed.stat.exists
+
+- name: Install Rust via rustup with XDG paths
+  shell: |
+    export CARGO_HOME="{{ rust_cargo_home }}"
+    export RUSTUP_HOME="{{ rust_rustup_home }}"
+    /tmp/rustup-init.sh -y --default-toolchain {{ rust_default_toolchain }}
+  args:
+    creates: "{{ rust_rustup_home }}/toolchains"
+  environment:
+    CARGO_HOME: "{{ rust_cargo_home }}"
+    RUSTUP_HOME: "{{ rust_rustup_home }}"
+  when: not rustup_installed.stat.exists
+  notify: cleanup rustup installer
+
+- name: Create cargo config directory
+  file:
+    path: "{{ ansible_env.HOME }}/.config/cargo"
+    state: directory
+    mode: "0755"
+
+- name: Configure cargo with XDG-compliant settings
+  template:
+    src: cargo_config.toml.j2
+    dest: "{{ ansible_env.HOME }}/.config/cargo/config.toml"
+    mode: "0644"
+
+- name: Add Rust environment variables to shell profile
+  blockinfile:
+    path: "{{ item }}"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - Rust XDG Environment"
+    block: |
+      # Rust XDG Base Directory Compliance
+      export CARGO_HOME="{{ rust_cargo_home }}"
+      export RUSTUP_HOME="{{ rust_rustup_home }}"
+      export PATH="{{ rust_cargo_home }}/bin:$PATH"
+    create: yes
+    mode: "0644"
+  loop: "{{ rust_shell_profiles }}"
+  when: rust_update_shell_profiles
+
+- name: Update Rust toolchain (when requested)
+  shell: |
+    export CARGO_HOME="{{ rust_cargo_home }}"
+    export RUSTUP_HOME="{{ rust_rustup_home }}"
+    export PATH="{{ rust_cargo_home }}/bin:$PATH"
+    rustup update
+  environment:
+    CARGO_HOME: "{{ rust_cargo_home }}"
+    RUSTUP_HOME: "{{ rust_rustup_home }}"
+    PATH: "{{ rust_cargo_home }}/bin:{{ ansible_env.PATH }}"
+  when: rust_update_toolchain | default(false) | bool
+  notify: verify rust installation
+
+- name: Install additional Rust components
+  shell: |
+    export CARGO_HOME="{{ rust_cargo_home }}"
+    export RUSTUP_HOME="{{ rust_rustup_home }}"
+    export PATH="{{ rust_cargo_home }}/bin:$PATH"
+    rustup component add {{ item }}
+  environment:
+    CARGO_HOME: "{{ rust_cargo_home }}"
+    RUSTUP_HOME: "{{ rust_rustup_home }}"
+    PATH: "{{ rust_cargo_home }}/bin:{{ ansible_env.PATH }}"
+  loop: "{{ rust_components }}"
+  when: rust_components | length > 0
+  ignore_errors: yes

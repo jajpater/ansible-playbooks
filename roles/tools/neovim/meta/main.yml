@@ -1,0 +1,26 @@
+---
+galaxy_info:
+  author: System Administrator
+  description: Install and maintain Neovim from GitHub releases
+  license: license (GPL-2.0-or-later, MIT, etc)
+  min_ansible_version: "2.10"
+  
+  platforms:
+    - name: Ubuntu
+      versions:
+        - "20.04"
+        - "22.04"
+        - "24.04"
+    - name: Debian
+      versions:
+        - buster
+        - bullseye
+        - bookworm
+
+  galaxy_tags:
+    - neovim
+    - vim
+    - editor
+    - development
+
+dependencies: []

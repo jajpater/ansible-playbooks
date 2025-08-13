@@ -1,0 +1,11 @@
+github_token: >-
+  {{
+    lookup('env','GITHUB_TOKEN')
+    | default(
+        lookup(
+          'ini',
+          'GITHUB_TOKEN file=' ~ (ansible_env.HOME ~ '/.config/ansible/env') ~ ' type=properties'
+        ),
+        true
+      )
+  }}
