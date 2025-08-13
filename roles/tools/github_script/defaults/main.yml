@@ -1,0 +1,45 @@
+---
+# Default variables for github_script role
+
+# GitHub script configuration
+github_script_repo: ""                    # Required: GitHub repo (e.g. "soimort/translate-shell")
+github_script_name: ""                    # Required: Script name (e.g. "trans")
+github_script_url: ""                     # Optional: Direct download URL (overrides repo-based detection)
+github_script_version: "latest"           # Version to install ("latest" or specific version)
+
+# Installation paths
+github_script_install_dir: "{{ ansible_env.HOME }}/.local/bin"
+github_script_download_dir: "/tmp"
+
+# File permissions
+github_script_mode: "0755"
+
+# Update management  
+github_script_update_mode: "auto"         # auto, always, never, force
+github_script_force_update: false
+
+# Verification
+github_script_verify_installation: true
+
+# Optional post-install commands
+github_script_post_install_commands: []   # List of shell commands to run after installation
+
+# Dependencies check
+github_script_dependencies: []            # List of packages to check (e.g. ["curl", "gawk"])
+
+# GitHub API settings
+github_script_api_timeout: 30
+github_script_download_timeout: 300
+
+# Predefined configurations for common scripts
+github_script_configs:
+  translate-shell:
+    repo: "soimort/translate-shell"
+    name: "trans"
+    url: "https://git.io/trans"
+    dependencies: ["curl", "gawk"]
+    post_install_commands:
+      - "{{ github_script_install_dir }}/trans --version"
+  
+# Active configuration (can be set to use predefined configs)
+github_script_config: ""                  # e.g. "translate-shell" to use predefined config

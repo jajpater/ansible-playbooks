@@ -1,0 +1,6 @@
+---
+# Handlers for github_script role
+
+- name: github script installed
+  debug:
+    msg: "{{ github_script_name }} has been successfully installed/updated from {{ github_script_repo }}"

@@ -1,0 +1,30 @@
+---
+# Meta information for github_script role
+
+galaxy_info:
+  author: "System Administrator"
+  description: "Install and manage scripts from GitHub repositories"
+  company: ""
+  license: "MIT"
+  min_ansible_version: "2.9"
+  
+  platforms:
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+        - noble
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+
+  galaxy_tags:
+    - github
+    - scripts
+    - tools
+    - cli
+    - download
+    - automation
+
+dependencies: []

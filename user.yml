@@ -65,3 +65,8 @@
 
     - role: tools/gdu
       tags: [gdu, disk-usage, analyzer]
+
+    - role: tools/github_script
+      vars:
+        github_script_config: "translate-shell"
+      tags: [github-script, translate-shell, translator]

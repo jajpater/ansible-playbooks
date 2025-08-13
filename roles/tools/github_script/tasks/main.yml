@@ -1,0 +1,175 @@
+---
+# Main tasks for github_script role
+
+- name: Load predefined configuration if specified
+  set_fact:
+    github_script_repo: "{{ github_script_configs[github_script_config].repo | default(github_script_repo) }}"
+    github_script_name: "{{ github_script_configs[github_script_config].name | default(github_script_name) }}"
+    github_script_url: "{{ github_script_configs[github_script_config].url | default(github_script_url) }}"
+    github_script_dependencies: "{{ github_script_configs[github_script_config].dependencies | default(github_script_dependencies) }}"
+    github_script_post_install_commands: "{{ github_script_configs[github_script_config].post_install_commands | default(github_script_post_install_commands) }}"
+  when: github_script_config != "" and github_script_config in github_script_configs
+
+- name: Validate required variables
+  fail:
+    msg: "{{ item }} is required but not set"
+  when: vars[item] == "" or vars[item] is undefined
+  loop:
+    - github_script_repo
+    - github_script_name
+
+- name: Check dependencies (if specified)
+  command: which {{ item }}
+  register: dependency_check
+  failed_when: false
+  changed_when: false
+  loop: "{{ github_script_dependencies }}"
+  when: github_script_dependencies | length > 0
+
+- name: Warn about missing dependencies
+  debug:
+    msg: "Warning: {{ item.item }} not found. Please install it for full functionality."
+  when: 
+    - github_script_dependencies | length > 0
+    - item.rc != 0
+  loop: "{{ dependency_check.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Create installation directory
+  file:
+    path: "{{ github_script_install_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Check if script is already installed
+  stat:
+    path: "{{ github_script_install_dir }}/{{ github_script_name }}"
+  register: github_script_current_binary
+
+- name: Get current version (if possible)
+  shell: "{{ github_script_install_dir }}/{{ github_script_name }} --version 2>/dev/null || echo 'unknown'"
+  register: github_script_current_version
+  when: github_script_current_binary.stat.exists
+  changed_when: false
+  failed_when: false
+
+- name: Get latest release information (if needed and no direct URL)
+  uri:
+    url: "https://api.github.com/repos/{{ github_script_repo }}/releases/latest"
+    method: GET
+    return_content: true
+    timeout: "{{ github_script_api_timeout }}"
+  register: github_script_latest_release
+  when: 
+    - github_script_version == "latest"
+    - github_script_url == ""
+  failed_when: false
+
+- name: Set target version
+  set_fact:
+    github_script_target_version: >-
+      {%- if github_script_url != "" -%}
+      latest
+      {%- elif github_script_version == "latest" and github_script_latest_release is succeeded -%}
+      {{ github_script_latest_release.json.tag_name }}
+      {%- else -%}
+      {{ github_script_version }}
+      {%- endif -%}
+
+- name: Display version information
+  debug:
+    msg: |
+      Script: {{ github_script_name }}
+      Repository: {{ github_script_repo }}
+      Current version: {{ github_script_current_version.stdout | default('Not installed') }}
+      Target version: {{ github_script_target_version | default('latest') }}
+      Update mode: {{ github_script_update_mode }}
+
+- name: Determine if update is needed
+  set_fact:
+    github_script_needs_update: >-
+      {{
+        github_script_update_mode == "always" or
+        github_script_force_update or
+        not github_script_current_binary.stat.exists or
+        (github_script_update_mode == "auto" and github_script_current_version.stdout | default('') != github_script_target_version | default(''))
+      }}
+
+- name: Skip installation if not needed
+  debug:
+    msg: "{{ github_script_name }} is already installed and up to date"
+  when: not github_script_needs_update
+
+- name: Install/update GitHub script
+  block:
+    - name: Determine download URL
+      set_fact:
+        github_script_final_url: >-
+          {% if github_script_url != "" -%}
+          {{ github_script_url }}
+          {%- elif github_script_latest_release is succeeded and github_script_latest_release.json.tarball_url is defined -%}
+          {{ github_script_latest_release.json.tarball_url }}
+          {%- else -%}
+          https://raw.githubusercontent.com/{{ github_script_repo }}/main/{{ github_script_name }}
+          {%- endif %}
+
+    - name: Download script
+      get_url:
+        url: "{{ github_script_final_url }}"
+        dest: "{{ github_script_download_dir }}/{{ github_script_name }}"
+        timeout: "{{ github_script_download_timeout }}"
+        mode: '0644'
+        force: "{{ github_script_force_update }}"
+      register: github_script_download
+
+    - name: Install script
+      copy:
+        src: "{{ github_script_download_dir }}/{{ github_script_name }}"
+        dest: "{{ github_script_install_dir }}/{{ github_script_name }}"
+        mode: "{{ github_script_mode }}"
+        remote_src: true
+      notify: github script installed
+
+    - name: Clean up downloaded file
+      file:
+        path: "{{ github_script_download_dir }}/{{ github_script_name }}"
+        state: absent
+
+  when: github_script_needs_update
+
+- name: Run post-install commands
+  shell: "{{ item }}"
+  loop: "{{ github_script_post_install_commands }}"
+  when: 
+    - github_script_post_install_commands | length > 0
+    - github_script_needs_update
+  ignore_errors: true
+
+- name: Verify installation
+  block:
+    - name: Check if script binary exists
+      stat:
+        path: "{{ github_script_install_dir }}/{{ github_script_name }}"
+      register: github_script_verify_binary
+
+    - name: Test script execution
+      shell: "{{ github_script_install_dir }}/{{ github_script_name }} --version 2>/dev/null || {{ github_script_install_dir }}/{{ github_script_name }} --help 2>/dev/null | head -1 || echo 'Script installed but version/help not available'"
+      register: github_script_verify_version
+      changed_when: false
+      when: github_script_verify_binary.stat.exists
+
+    - name: Display installation verification
+      debug:
+        msg: |
+          {{ github_script_name }} installation verified:
+          Binary path: {{ github_script_install_dir }}/{{ github_script_name }}
+          Status: {{ github_script_verify_version.stdout | default('Could not determine status') }}
+          Executable: {{ github_script_verify_binary.stat.exists | default(false) }}
+
+    - name: Fail if verification failed
+      fail:
+        msg: "{{ github_script_name }} installation verification failed"
+      when: not github_script_verify_binary.stat.exists
+
+  when: github_script_verify_installation
