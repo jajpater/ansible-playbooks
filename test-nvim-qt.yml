@@ -1,0 +1,27 @@
+---
+- name: Test nvim-qt installation
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  become: false
+  
+  roles:
+    - role: tools/nvim-qt
+      tags: [nvim-qt]
+  
+  post_tasks:
+    - name: Display completion message
+      debug:
+        msg: |
+          🎉 nvim-qt Installation Complete!
+          
+          nvim-qt has been built and installed successfully.
+          
+          📋 Next Steps:
+          1. Launch from applications menu: Search "Neovim Qt"
+          2. Or from command line: nvim-qt
+          3. Configure GUI font: :set guifont=Font\ Name:h12
+          
+          📚 Resources:
+          • nvim-qt Documentation: https://github.com/equalsraf/neovim-qt
+          • Uses your existing Neovim config and plugins

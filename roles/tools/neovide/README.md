@@ -6,7 +6,7 @@ This Ansible role installs and maintains Neovide, a modern Rust-based GUI client
 
 - **Latest Releases**: Installs from official GitHub releases
 - **Multiple Methods**: AppImage (portable) or tarball (extract to bin)
-- **User Installation**: Installs to `~/.local` for user-level access
+- **System Installation**: Installs to `/usr/local` for system-wide access
 - **Smart Updates**: Only downloads/installs when version changes
 - **Desktop Integration**: Creates application launcher
 - **Configuration Support**: Optional Neovide-specific configuration
@@ -17,6 +17,7 @@ This Ansible role installs and maintains Neovide, a modern Rust-based GUI client
 - Neovim must be installed first (use `tools/neovim` role)
 - Internet connection for downloading releases
 - GUI environment (X11 or Wayland)
+- Sudo privileges (role requires system installation)
 - Required system libraries (see dependencies check in role)
 
 ## Role Variables
@@ -30,8 +31,8 @@ neovide_version: "latest"
 # Installation method: 'appimage' (portable) or 'tarball' (extract to bin)
 neovide_install_method: "appimage"
 
-# Installation directory for Neovide
-neovide_install_dir: "{{ ansible_env.HOME }}/.local"
+# Installation directory for Neovide (system-wide)
+neovide_install_dir: "/usr/local"
 
 # Whether to update Neovide if already installed
 neovide_force_update: false
@@ -40,7 +41,7 @@ neovide_force_update: false
 neovide_create_desktop_entry: true
 
 # Default Neovim binary for Neovide to use
-neovide_nvim_path: "{{ ansible_env.HOME }}/.local/bin/nvim"
+neovide_nvim_path: "/usr/local/bin/nvim"
 
 # Whether to initialize basic Neovide configuration
 neovide_init_config: false
@@ -50,7 +51,7 @@ neovide_init_config: false
 
 ### Basic Installation
 
-Add the role to your playbook (requires Neovim to be installed first):
+Add the role to your playbook (requires Neovim and sudo privileges):
 
 ```yaml
 - role: tools/neovide
@@ -106,7 +107,7 @@ roles:
 2. **Neovim Check**: Ensures Neovim is available
 3. **Release Detection**: Gets latest or specified version from GitHub
 4. **Download**: Downloads AppImage or tarball
-5. **Installation**: Places binary in `~/.local/bin/`
+5. **Installation**: Places binary in `/usr/local/bin/`
 6. **Desktop Entry**: Creates application launcher
 7. **Configuration**: Optional Neovide-specific settings
 8. **Verification**: Confirms successful installation
@@ -192,7 +193,7 @@ end
   hosts: localhost
   connection: local
   gather_facts: true
-  become: false
+  become: true   # Required for system installation
 
   roles:
     - role: tools/neovim
@@ -211,7 +212,7 @@ end
 **AppImage won't run**: Check if FUSE is available: `sudo apt install fuse`
 **Graphics issues**: Ensure you have proper GPU drivers installed
 **Font issues**: Install your preferred programming fonts
-**Desktop entry not working**: Check `~/.local/share/applications/neovide.desktop`
+**Desktop entry not working**: Check `/usr/share/applications/neovide.desktop`
 
 ## Advantages Over Other GUIs
 

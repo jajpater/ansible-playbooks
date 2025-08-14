@@ -1,0 +1,148 @@
+---
+- name: Check if npm is available
+  command: "{{ claude_code_npm_bin }} --version"
+  register: claude_code_npm_check
+  changed_when: false
+  failed_when: false
+  tags: [claude-code, dependencies]
+
+- name: Fail if npm is not installed
+  fail:
+    msg: |
+      npm is required but not found at {{ claude_code_npm_bin }}.
+      Please install npm first using the npm role.
+  when: claude_code_npm_check.rc != 0
+  tags: [claude-code, dependencies]
+
+- name: Display npm version
+  debug:
+    msg: "Found npm version: {{ claude_code_npm_check.stdout.strip() }}"
+  when: claude_code_npm_check.rc == 0
+  tags: [claude-code, dependencies]
+
+- name: Check if Claude Code is already installed
+  command: "{{ claude_code_global_bin_dir }}/claude --version"
+  register: claude_code_current_version
+  changed_when: false
+  failed_when: false
+  environment:
+    PATH: "{{ claude_code_global_bin_dir }}:{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH }}"
+  tags: [claude-code]
+
+- name: Display current Claude Code status
+  debug:
+    msg: |
+      Current Claude Code: {{ 'Not installed' if claude_code_current_version.rc != 0 else claude_code_current_version.stdout.strip() }}
+      Action: {{ 'Install/Update' if claude_code_current_version.rc != 0 or claude_code_force_install else 'Skip (already installed)' }}
+  tags: [claude-code]
+
+- name: Install Claude Code globally via npm
+  npm:
+    name: "{{ claude_code_package }}"
+    version: "{{ claude_code_version }}"
+    global: true
+    executable: "{{ claude_code_npm_bin }}"
+  environment:
+    NPM_CONFIG_USERCONFIG: "{{ ansible_env.HOME }}/.config/npm/npmrc"
+    PATH: "{{ claude_code_global_bin_dir }}:{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH }}"
+  when: claude_code_current_version.rc != 0 or claude_code_force_install
+  tags: [claude-code, install]
+
+- name: Create XDG-compliant configuration directory
+  file:
+    path: "{{ claude_code_config_dir }}"
+    state: directory
+    mode: '0700'
+  tags: [claude-code, config]
+
+- name: Setup shell PATH for Claude Code
+  lineinfile:
+    path: "{{ item }}"
+    line: |
+      # Claude Code PATH configuration
+      export PATH="{{ claude_code_global_bin_dir }}:$PATH"
+    regexp: "^# Claude Code PATH configuration"
+    create: true
+    mode: '0644'
+  loop:
+    - "{{ ansible_env.HOME }}/.bashrc"
+    - "{{ ansible_env.HOME }}/.config/zsh/.zshrc"
+    - "{{ ansible_env.HOME }}/.profile"
+  tags: [claude-code, path]
+
+- name: Create claude alias if requested
+  lineinfile:
+    path: "{{ item }}"
+    line: "alias claude='{{ claude_code_global_bin_dir }}/claude'"
+    regexp: "^alias claude="
+    create: true
+    mode: '0644'
+  loop:
+    - "{{ ansible_env.HOME }}/.bashrc"
+    - "{{ ansible_env.HOME }}/.config/zsh/.zshrc"
+  when: claude_code_setup_aliases
+  tags: [claude-code, aliases]
+
+- name: Create desktop entry for Claude Code
+  copy:
+    content: |
+      [Desktop Entry]
+      Name=Claude Code
+      Comment=AI-powered coding assistant by Anthropic
+      Exec=gnome-terminal -e "{{ claude_code_global_bin_dir }}/claude"
+      Terminal=true
+      Type=Application
+      Keywords=AI;assistant;coding;development;claude;anthropic;
+      Icon=terminal
+      Categories=Development;Utility;
+      StartupNotify=false
+    dest: "{{ ansible_env.HOME }}/.local/share/applications/claude-code.desktop"
+    mode: '0644'
+  when: claude_code_create_desktop_entry
+  tags: [claude-code, desktop]
+
+- name: Verify Claude Code installation
+  command: "{{ claude_code_global_bin_dir }}/claude --version"
+  register: claude_code_verify_result
+  changed_when: false
+  environment:
+    PATH: "{{ claude_code_global_bin_dir }}:{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH }}"
+  tags: [claude-code, verify]
+
+- name: Check if API key is configured
+  stat:
+    path: "{{ claude_code_api_key_file }}"
+  register: claude_code_api_key_stat
+  tags: [claude-code, verify]
+
+- name: Display installation verification and next steps
+  debug:
+    msg: |
+      ✅ Claude Code installation verified!
+      
+      📍 Installation Details:
+      • Version: {{ claude_code_verify_result.stdout.strip() }}
+      • Binary: {{ claude_code_global_bin_dir }}/claude
+      • Config Directory: {{ claude_code_config_dir }}/
+      
+      🔐 Authentication Status:
+      {{ '• API Key: Configured ✅' if claude_code_api_key_stat.stat.exists else '• API Key: Not configured ❌' }}
+      
+      🚀 Next Steps:
+      {% if not claude_code_api_key_stat.stat.exists %}
+      1. Get your API key from: https://console.anthropic.com/
+      2. Authenticate Claude Code by running: claude auth
+      {% else %}
+      1. Claude Code is ready to use!
+      {% endif %}
+      3. Navigate to your project: cd your-project
+      4. Start coding with Claude: claude
+      
+      💡 Quick Commands:
+      • claude --help        (show help)
+      • claude --version     (check version)
+      • claude auth          (authenticate with API key)
+      • claude               (start interactive session)
+      
+      📖 Documentation: https://docs.anthropic.com/en/docs/claude-code/
+  tags: [claude-code, verify]

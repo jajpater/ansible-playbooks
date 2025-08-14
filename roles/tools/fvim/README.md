@@ -33,7 +33,7 @@ fvim_install_method: "deb"
 fvim_force_update: false
 
 # Default Neovim binary for FVim to use
-fvim_nvim_path: "{{ ansible_env.HOME }}/.local/bin/nvim"
+fvim_nvim_path: "/usr/local/bin/nvim"
 
 # Whether to initialize basic FVim configuration
 fvim_init_config: false
@@ -175,7 +175,7 @@ The role automatically detects your system architecture:
   hosts: localhost
   connection: local  
   gather_facts: true
-  become: false  # Role handles sudo internally
+  become: true   # Required for system installation
 
   roles:
     - role: tools/neovim

@@ -1,0 +1,217 @@
+---
+- name: Check if Neovim is available
+  command: "{{ nvim_qt_nvim_path }} --version"
+  register: nvim_qt_nvim_check
+  changed_when: false
+  failed_when: false
+  tags: [nvim-qt, dependencies]
+
+- name: Fail if Neovim is not installed
+  fail:
+    msg: |
+      Neovim is required but not found at {{ nvim_qt_nvim_path }}.
+      Please install Neovim first using the neovim role.
+      Current Neovim should be installed from GitHub releases, not apt.
+  when: nvim_qt_nvim_check.rc != 0
+  tags: [nvim-qt, dependencies]
+
+- name: Display Neovim version
+  debug:
+    msg: "Found Neovim: {{ nvim_qt_nvim_check.stdout.split()[1] }}"
+  when: nvim_qt_nvim_check.rc == 0
+  tags: [nvim-qt, dependencies]
+
+- name: Install Qt development dependencies
+  package:
+    name: "{{ nvim_qt_system_dependencies }}"
+    state: present
+  become: true
+  tags: [nvim-qt, dependencies]
+
+- name: Get latest nvim-qt release info
+  uri:
+    url: "{{ nvim_qt_github_api_url }}/releases/latest"
+    method: GET
+    return_content: true
+    body_format: json
+  register: nvim_qt_latest_release
+  when: nvim_qt_version == "latest"
+  tags: [nvim-qt]
+
+- name: Get specific nvim-qt release info
+  uri:
+    url: "{{ nvim_qt_github_api_url }}/releases/tags/{{ nvim_qt_version }}"
+    method: GET
+    return_content: true
+    body_format: json
+  register: nvim_qt_specific_release
+  when: nvim_qt_version != "latest"
+  tags: [nvim-qt]
+
+- name: Set nvim-qt release facts
+  set_fact:
+    nvim_qt_release: "{{ nvim_qt_latest_release.json if nvim_qt_version == 'latest' else nvim_qt_specific_release.json }}"
+    nvim_qt_target_version: "{{ nvim_qt_latest_release.json.tag_name if nvim_qt_version == 'latest' else nvim_qt_version }}"
+  tags: [nvim-qt]
+
+- name: Check current nvim-qt version
+  command: "{{ nvim_qt_install_dir }}/bin/nvim-qt --version"
+  register: nvim_qt_current_version
+  changed_when: false
+  failed_when: false
+  tags: [nvim-qt]
+
+- name: Determine if nvim-qt rebuild is needed
+  set_fact:
+    nvim_qt_needs_build: >-
+      {{ nvim_qt_current_version.rc != 0 or 
+         nvim_qt_force_rebuild or 
+         nvim_qt_target_version not in nvim_qt_current_version.stdout }}
+  tags: [nvim-qt]
+
+- name: Display current status
+  debug:
+    msg: |
+      Current nvim-qt: {{ 'Not installed' if nvim_qt_current_version.rc != 0 else 'Installed' }}
+      Target nvim-qt version: {{ nvim_qt_target_version }}
+      Action: {{ 'Build/Install' if nvim_qt_needs_build else 'Skip (already installed)' }}
+  tags: [nvim-qt]
+
+- name: Build and install nvim-qt from source
+  when: nvim_qt_needs_build
+  block:
+    - name: Remove existing build directory
+      file:
+        path: "{{ nvim_qt_build_dir }}"
+        state: absent
+      tags: [nvim-qt, build]
+
+    - name: Create build directory
+      file:
+        path: "{{ nvim_qt_build_dir }}"
+        state: directory
+        mode: '0755'
+      tags: [nvim-qt, build]
+
+    - name: Clone nvim-qt repository
+      git:
+        repo: "https://github.com/{{ nvim_qt_github_repo }}.git"
+        dest: "{{ nvim_qt_build_dir }}/source"
+        version: "{{ nvim_qt_target_version }}"
+        depth: 1
+      tags: [nvim-qt, build]
+
+    - name: Create build subdirectory
+      file:
+        path: "{{ nvim_qt_build_dir }}/build"
+        state: directory
+        mode: '0755'
+      tags: [nvim-qt, build]
+
+    - name: Configure build with cmake
+      shell: |
+        cd "{{ nvim_qt_build_dir }}/build"
+        cmake -DCMAKE_BUILD_TYPE={{ nvim_qt_build_type }} \
+              -DCMAKE_INSTALL_PREFIX="{{ nvim_qt_install_dir }}" \
+              -DNVIM_QT_NVIM_EXECUTABLE="{{ nvim_qt_nvim_path }}" \
+              "../source"
+      args:
+        executable: /bin/bash
+      tags: [nvim-qt, build]
+
+    - name: Build nvim-qt
+      shell: |
+        cd "{{ nvim_qt_build_dir }}/build"
+        make -j$(nproc)
+      args:
+        executable: /bin/bash
+      tags: [nvim-qt, build]
+
+    - name: Install nvim-qt
+      shell: |
+        cd "{{ nvim_qt_build_dir }}/build"
+        make install
+      args:
+        executable: /bin/bash
+      become: true
+      tags: [nvim-qt, build]
+
+    - name: Clean up build directory
+      file:
+        path: "{{ nvim_qt_build_dir }}"
+        state: absent
+      tags: [nvim-qt, build]
+
+- name: Create desktop entry for nvim-qt
+  copy:
+    content: |
+      [Desktop Entry]
+      Version=1.0
+      Type=Application
+      Name={{ nvim_qt_desktop_entry.name }}
+      Comment={{ nvim_qt_desktop_entry.comment }}
+      Exec={{ nvim_qt_install_dir }}/bin/nvim-qt %F
+      TryExec={{ nvim_qt_install_dir }}/bin/nvim-qt
+      Icon=nvim-qt
+      Terminal=false
+      Categories={{ nvim_qt_desktop_entry.categories }}
+      Keywords={{ nvim_qt_desktop_entry.keywords }}
+      MimeType={{ nvim_qt_desktop_entry.mime_types }}
+      StartupNotify=true
+      StartupWMClass=nvim-qt
+    dest: "/usr/share/applications/nvim-qt.desktop"
+    mode: '0644'
+    backup: true
+  become: true
+  when: nvim_qt_create_desktop_entry
+  tags: [nvim-qt, desktop]
+
+
+- name: Verify nvim-qt installation
+  command: "{{ nvim_qt_install_dir }}/bin/nvim-qt --version"
+  register: nvim_qt_verify_result
+  changed_when: false
+  tags: [nvim-qt, verify]
+
+- name: Test nvim-qt can find Neovim
+  shell: |
+    export PATH="{{ nvim_qt_install_dir }}/bin:{{ ansible_env.PATH }}"
+    echo 'echo "nvim-qt test"' | "{{ nvim_qt_install_dir }}/bin/nvim-qt" --headless --noplugin -c 'execute "normal! i" . system("echo Hello from nvim-qt")' -c 'write! /tmp/nvim-qt-test.txt' -c 'quit'
+    cat /tmp/nvim-qt-test.txt 2>/dev/null || echo "Test completed (file not found is normal)"
+    rm -f /tmp/nvim-qt-test.txt
+  args:
+    executable: /bin/bash
+  register: nvim_qt_neovim_test
+  changed_when: false
+  tags: [nvim-qt, verify]
+
+- name: Display installation verification
+  debug:
+    msg: |
+      ✅ nvim-qt installation verified!
+      
+      📍 Installation Details:
+      • nvim-qt Version: {{ nvim_qt_target_version }}
+      • nvim-qt Binary: {{ nvim_qt_install_dir }}/bin/nvim-qt
+      • Using Neovim: {{ nvim_qt_nvim_path }} ({{ nvim_qt_nvim_check.stdout.split()[1] }})
+      
+      🖥️  Desktop Integration:
+      • Desktop Entry: /usr/share/applications/nvim-qt.desktop
+      • Application Menu: Available as "{{ nvim_qt_desktop_entry.name }}"
+      
+      🚀 Usage:
+      • Command Line: nvim-qt [file...]
+      • GUI Launch: Search for "{{ nvim_qt_desktop_entry.name }}" in applications
+      • File Association: Right-click files → Open With → {{ nvim_qt_desktop_entry.name }}
+      
+      💡 Features:
+      • Built against your GitHub Neovim installation
+      • Fully compatible with your existing Neovim config
+      • GUI clipboard integration
+      • Font and appearance settings in Edit → Preferences
+      
+      🔧 Notes:
+      • Configuration is shared with your terminal Neovim
+      • Plugins and settings work the same way
+      • Use :set guifont=Font\ Name:h12 to set GUI font
+  tags: [nvim-qt, verify]

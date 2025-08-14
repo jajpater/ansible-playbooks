@@ -54,14 +54,7 @@
     - role: tools/rbw
       tags: [rbw, bitwarden, password-manager]
 
-    - role: tools/neovim
-      tags: [neovim, vim, editor]
 
-    - role: tools/neovide
-      tags: [neovide, neovim-gui, gui]
-
-    - role: tools/fvim
-      tags: [fvim, neovim-gui, gui]
 
     - role: tools/gdu
       tags: [gdu, disk-usage, analyzer]

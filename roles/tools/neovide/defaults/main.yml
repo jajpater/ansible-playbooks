@@ -7,8 +7,8 @@ neovide_version: "latest"
 # Installation method: 'appimage' (portable) or 'tarball' (extract to bin)
 neovide_install_method: "appimage"
 
-# Installation directory for Neovide
-neovide_install_dir: "{{ ansible_env.HOME }}/.local"
+# Installation directory for Neovide (system-wide)
+neovide_install_dir: "/usr/local"
 
 # Whether to update Neovide if already installed
 neovide_force_update: false
@@ -20,7 +20,7 @@ neovide_create_desktop_entry: true
 neovide_add_to_path: true
 
 # Default Neovim binary for Neovide to use
-neovide_nvim_path: "{{ ansible_env.HOME }}/.local/bin/nvim"
+neovide_nvim_path: "/usr/local/bin/nvim"
 
 # Neovide configuration directory
 neovide_config_dir: "{{ ansible_env.HOME }}/.config/neovide"

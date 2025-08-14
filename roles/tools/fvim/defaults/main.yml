@@ -14,7 +14,7 @@ fvim_force_update: false
 fvim_create_desktop_entry: false
 
 # Default Neovim binary for FVim to use
-fvim_nvim_path: "{{ ansible_env.HOME }}/.local/bin/nvim"
+fvim_nvim_path: "/usr/local/bin/nvim"
 
 # FVim configuration directory
 fvim_config_dir: "{{ ansible_env.HOME }}/.config/fvim"

@@ -1,0 +1,54 @@
+---
+# Go installation and configuration defaults
+
+# Go version to install (use 'latest' for most recent stable release)
+go_version: "latest"
+
+# Installation directory for Go binaries and SDK
+go_install_dir: "{{ ansible_env.HOME }}/.local/share/go"
+
+# XDG-compliant Go environment variables
+go_root: "{{ go_install_dir }}"
+go_path: "{{ ansible_env.HOME }}/.local/share/go-workspace"
+go_cache: "{{ ansible_env.HOME }}/.cache/go"
+go_modcache: "{{ ansible_env.HOME }}/.cache/go/mod"
+go_config_dir: "{{ ansible_env.HOME }}/.config/go"
+
+# Go binary directory (will be added to PATH)
+go_bin_dir: "{{ go_install_dir }}/bin"
+
+# User's Go workspace bin directory (for installed packages)
+go_user_bin_dir: "{{ go_path }}/bin"
+
+# Whether to force update if already installed
+go_force_update: false
+
+# Whether to create XDG directories
+go_create_xdg_dirs: true
+
+# Whether to setup shell PATH configuration
+go_setup_path: true
+
+# Whether to create initial Go workspace structure
+go_create_workspace: true
+
+# Go environment configuration
+go_env_vars:
+  GOROOT: "{{ go_root }}"
+  GOPATH: "{{ go_path }}"
+  GOCACHE: "{{ go_cache }}"
+  GOMODCACHE: "{{ go_modcache }}"
+  GOBIN: "{{ go_user_bin_dir }}"
+  GO111MODULE: "on"
+  GOPROXY: "https://proxy.golang.org,direct"
+  GOSUMDB: "sum.golang.org"
+
+# Go packages to install globally
+go_packages: []
+  # - "golang.org/x/tools/cmd/goimports@latest"
+  # - "github.com/golangci/golangci-lint/cmd/golangci-lint@latest"
+  # - "github.com/air-verse/air@latest"
+
+# Go release download settings
+go_download_url_base: "https://golang.org/dl"
+go_arch: "linux-amd64"

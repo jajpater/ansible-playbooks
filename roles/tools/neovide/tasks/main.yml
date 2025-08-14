@@ -38,7 +38,7 @@
     msg: |
       WARNING: Neovim not found at {{ neovide_nvim_path }}
       Neovide requires Neovim to be installed first.
-      Install with: ansible-playbook user.yml --tags neovim
+      Install with: ansible-playbook root.yml --tags neovim
   when: not neovim_binary_check.stat.exists
   tags: [neovide, dependencies]
 
@@ -122,6 +122,7 @@
         path: "{{ neovide_install_dir }}/bin"
         state: directory
         mode: '0755'
+      become: true
       tags: [neovide]
 
     - name: Download Neovide AppImage
@@ -130,6 +131,7 @@
         dest: "{{ neovide_install_dir }}/bin/neovide"
         mode: '0755'
         timeout: 300
+      become: true
       tags: [neovide]
 
 - name: Download and install Neovide (tarball method)
@@ -163,6 +165,7 @@
         path: "{{ neovide_install_dir }}/bin"
         state: directory
         mode: '0755'
+      become: true
       tags: [neovide]
 
     - name: Extract Neovide tarball
@@ -178,6 +181,7 @@
         dest: "{{ neovide_install_dir }}/bin/neovide"
         mode: '0755'
         remote_src: true
+      become: true
       tags: [neovide]
 
     - name: Cleanup temporary directory
@@ -236,8 +240,10 @@
       StartupNotify=false
       MimeType=text/english;text/plain;text/x-makefile;text/x-c++hdr;text/x-c++src;text/x-chdr;text/x-csrc;text/x-java;text/x-moc;text/x-pascal;text/x-tcl;text/x-tex;application/x-shellscript;text/x-c;text/x-c++;
       StartupWMClass=neovide
-    dest: "{{ ansible_env.HOME }}/.local/share/applications/neovide.desktop"
+    dest: "/usr/share/applications/neovide.desktop"
     mode: '0644'
+    backup: true
+  become: true
   when: neovide_create_desktop_entry
   tags: [neovide, desktop]
 

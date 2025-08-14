@@ -1,0 +1,233 @@
+---
+- name: Check for required system packages
+  block:
+    - name: Check if required packages are installed
+      command: dpkg -l {{ item }}
+      register: npm_package_check
+      changed_when: false
+      failed_when: false
+      loop:
+        - curl
+        - wget
+        - tar
+        - xz-utils
+        - python3
+      tags: [npm, dependencies]
+
+    - name: Warn about missing system packages
+      debug:
+        msg: |
+          WARNING: Package {{ item.item }} is not installed.
+          Please run: sudo apt install {{ item.item }}
+      when: item.rc != 0
+      loop: "{{ npm_package_check.results }}"
+      tags: [npm, dependencies]
+
+- name: Create XDG-compliant directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ npm_config_dir }}"
+    - "{{ npm_cache_dir }}"
+    - "{{ npm_data_dir }}"
+    - "{{ npm_global_dir }}"
+    - "{{ npm_global_bin_dir }}"
+    - "{{ npm_install_dir }}/bin"
+  when: npm_create_xdg_dirs
+  tags: [npm, xdg]
+
+- name: Get latest Node.js version from nodejs.org
+  uri:
+    url: "https://nodejs.org/dist/index.json"
+    method: GET
+    return_content: true
+    body_format: json
+  register: nodejs_dist_index
+  when: nodejs_version == "latest"
+  tags: [npm, nodejs]
+
+- name: Set Node.js version facts
+  set_fact:
+    nodejs_target_version: "{{ nodejs_dist_index.json[0].version if nodejs_version == 'latest' else nodejs_version }}"
+  tags: [npm, nodejs]
+
+- name: Check current Node.js version
+  command: "{{ npm_install_dir }}/bin/node --version"
+  register: nodejs_current_version
+  changed_when: false
+  failed_when: false
+  tags: [npm, nodejs]
+
+- name: Check current npm version
+  command: "{{ npm_install_dir }}/bin/npm --version"
+  register: npm_current_version
+  changed_when: false
+  failed_when: false
+  tags: [npm]
+
+- name: Determine if Node.js/npm update is needed
+  set_fact:
+    npm_needs_install: >-
+      {{ nodejs_current_version.rc != 0 or 
+         npm_current_version.rc != 0 or
+         npm_force_update or 
+         nodejs_target_version not in nodejs_current_version.stdout }}
+  tags: [npm, nodejs]
+
+- name: Display current status
+  debug:
+    msg: |
+      Current Node.js: {{ 'Not installed' if nodejs_current_version.rc != 0 else nodejs_current_version.stdout.strip() }}
+      Current npm: {{ 'Not installed' if npm_current_version.rc != 0 else 'v' + npm_current_version.stdout.strip() }}
+      Target Node.js version: {{ nodejs_target_version }}
+      Action: {{ 'Install/Update' if npm_needs_install else 'Skip (already installed)' }}
+  tags: [npm, nodejs]
+
+- name: Download and install Node.js with npm
+  when: npm_needs_install
+  block:
+    - name: Set Node.js download URL
+      set_fact:
+        nodejs_download_url: "https://nodejs.org/dist/{{ nodejs_target_version }}/node-{{ nodejs_target_version }}-linux-x64.tar.xz"
+      tags: [npm, nodejs]
+
+    - name: Create temporary directory for download
+      tempfile:
+        state: directory
+        prefix: "nodejs_install_"
+      register: nodejs_temp_dir
+      tags: [npm, nodejs]
+
+    - name: Download Node.js tarball
+      get_url:
+        url: "{{ nodejs_download_url }}"
+        dest: "{{ nodejs_temp_dir.path }}/nodejs.tar.xz"
+        mode: '0644'
+        timeout: 300
+      tags: [npm, nodejs]
+
+    - name: Extract Node.js tarball
+      unarchive:
+        src: "{{ nodejs_temp_dir.path }}/nodejs.tar.xz"
+        dest: "{{ nodejs_temp_dir.path }}"
+        remote_src: true
+        creates: "{{ nodejs_temp_dir.path }}/node-{{ nodejs_target_version }}-linux-x64"
+      tags: [npm, nodejs]
+
+    - name: Install Node.js and npm files
+      shell: |
+        cd "{{ nodejs_temp_dir.path }}/node-{{ nodejs_target_version }}-linux-x64"
+        cp -rf bin/* "{{ npm_install_dir }}/bin/"
+        cp -rf include/* "{{ npm_install_dir }}/include/" 2>/dev/null || true
+        cp -rf lib/* "{{ npm_install_dir }}/lib/"
+        cp -rf share/* "{{ npm_install_dir }}/share/"
+      args:
+        executable: /bin/bash
+      tags: [npm, nodejs]
+
+    - name: Cleanup temporary directory
+      file:
+        path: "{{ nodejs_temp_dir.path }}"
+        state: absent
+      tags: [npm, nodejs]
+
+- name: Configure npm for XDG compliance
+  template:
+    src: npmrc.j2
+    dest: "{{ npm_config_dir }}/npmrc"
+    mode: '0644'
+  tags: [npm, config]
+
+- name: Create npm init configuration
+  copy:
+    content: |
+      // npm init configuration for XDG compliance
+      module.exports = {
+        name: prompt('package name', basename || package.name),
+        version: prompt('version', '1.0.0'),
+        description: prompt('description', ''),
+        main: prompt('entry point', 'index.js'),
+        repository: prompt('git repository', ''),
+        keywords: prompt('keywords', '', function(s) { return s.split(/\s+/) }),
+        author: prompt('author', process.env.USER || ''),
+        license: prompt('license', 'MIT')
+      };
+    dest: "{{ npm_config_dir }}/npm-init.js"
+    mode: '0644'
+  tags: [npm, config]
+
+- name: Setup PATH configuration in shell files
+  lineinfile:
+    path: "{{ item }}"
+    line: |
+      # npm XDG-compliant PATH configuration
+      export PATH="{{ npm_global_bin_dir }}:{{ npm_install_dir }}/bin:$PATH"
+      export NPM_CONFIG_USERCONFIG="{{ npm_config_dir }}/npmrc"
+    regexp: "^# npm XDG-compliant PATH configuration"
+    create: true
+    mode: '0644'
+  loop:
+    - "{{ ansible_env.HOME }}/.bashrc"
+    - "{{ ansible_env.HOME }}/.config/zsh/.zshrc"
+    - "{{ ansible_env.HOME }}/.profile"
+  when: npm_setup_path
+  tags: [npm, path]
+
+- name: Install global npm packages
+  npm:
+    name: "{{ item.name }}"
+    version: "{{ item.version | default('latest') }}"
+    global: true
+    executable: "{{ npm_install_dir }}/bin/npm"
+  environment:
+    NPM_CONFIG_USERCONFIG: "{{ npm_config_dir }}/npmrc"
+    PATH: "{{ npm_global_bin_dir }}:{{ npm_install_dir }}/bin:{{ ansible_env.PATH }}"
+  loop: "{{ npm_global_packages }}"
+  when: npm_global_packages | length > 0
+  tags: [npm, packages]
+
+- name: Verify Node.js installation
+  command: "{{ npm_install_dir }}/bin/node --version"
+  register: nodejs_verify_result
+  changed_when: false
+  tags: [npm, nodejs, verify]
+
+- name: Verify npm installation
+  command: "{{ npm_install_dir }}/bin/npm --version"
+  environment:
+    NPM_CONFIG_USERCONFIG: "{{ npm_config_dir }}/npmrc"
+  register: npm_verify_result
+  changed_when: false
+  tags: [npm, verify]
+
+- name: Display installation verification
+  debug:
+    msg: |
+      ✅ Node.js and npm installation verified!
+      
+      📍 Installation Details:
+      • Node.js Version: {{ nodejs_verify_result.stdout.strip() }}
+      • npm Version: v{{ npm_verify_result.stdout.strip() }}
+      • Node.js Binary: {{ npm_install_dir }}/bin/node
+      • npm Binary: {{ npm_install_dir }}/bin/npm
+      
+      📁 XDG-Compliant Directories:
+      • Config: {{ npm_config_dir }}/
+      • Cache: {{ npm_cache_dir }}/
+      • Data: {{ npm_data_dir }}/
+      • Global Packages: {{ npm_global_dir }}/
+      • Global Binaries: {{ npm_global_bin_dir }}/
+      
+      🚀 Next Steps:
+      1. Restart your shell or source your profile: source ~/.profile
+      2. Test npm: npm --version
+      3. Install global packages: npm install -g <package-name>
+      4. Check global packages: npm list -g --depth=0
+      
+      💡 Quick Commands:
+      • npm config list     (view configuration)
+      • npm root -g         (global packages location)
+      • npm bin -g          (global binaries location)
+  tags: [npm, verify]

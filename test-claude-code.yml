@@ -1,0 +1,30 @@
+---
+- name: Test npm and Claude Code installation
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  become: false
+  
+  roles:
+    - role: tools/npm
+      tags: [npm]
+    - role: tools/claude-code
+      tags: [claude-code]
+  
+  post_tasks:
+    - name: Display completion message
+      debug:
+        msg: |
+          🎉 Installation Complete!
+          
+          Both npm and Claude Code have been installed successfully.
+          
+          📋 Next Steps:
+          1. Restart your shell: exec $SHELL
+          2. Authenticate Claude Code: claude auth
+          3. Start coding: cd your-project && claude
+          
+          📚 Resources:
+          • Claude Code Documentation: https://docs.anthropic.com/en/docs/claude-code/
+          • Get API Key: https://console.anthropic.com/
+      tags: [always]

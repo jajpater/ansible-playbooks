@@ -1,0 +1,239 @@
+---
+- name: Check for required system packages
+  block:
+    - name: Check if required packages are installed
+      command: dpkg -l {{ item }}
+      register: go_package_check
+      changed_when: false
+      failed_when: false
+      loop:
+        - curl
+        - wget
+        - tar
+        - git
+      tags: [go, dependencies]
+
+    - name: Warn about missing system packages
+      debug:
+        msg: |
+          WARNING: Package {{ item.item }} is not installed.
+          Please run: sudo apt install {{ item.item }}
+      when: item.rc != 0
+      loop: "{{ go_package_check.results }}"
+      tags: [go, dependencies]
+
+- name: Create XDG-compliant directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ go_install_dir }}"
+    - "{{ go_path }}"
+    - "{{ go_path }}/src"
+    - "{{ go_path }}/pkg"
+    - "{{ go_path }}/bin"
+    - "{{ go_cache }}"
+    - "{{ go_modcache }}"
+    - "{{ go_config_dir }}"
+  when: go_create_xdg_dirs
+  tags: [go, xdg]
+
+- name: Get latest Go version from go.dev
+  uri:
+    url: "https://go.dev/VERSION?m=text"
+    method: GET
+    return_content: true
+  register: go_latest_version_response
+  when: go_version == "latest"
+  tags: [go]
+
+- name: Set Go version facts
+  set_fact:
+    go_target_version: "{{ go_latest_version_response.content.split()[0] if go_version == 'latest' else go_version }}"
+  tags: [go]
+
+- name: Check current Go version
+  command: "{{ go_bin_dir }}/go version"
+  register: go_current_version
+  changed_when: false
+  failed_when: false
+  environment:
+    PATH: "{{ go_bin_dir }}:{{ ansible_env.PATH }}"
+  tags: [go]
+
+- name: Determine if Go update is needed
+  set_fact:
+    go_needs_install: >-
+      {{ go_current_version.rc != 0 or 
+         go_force_update or 
+         go_target_version not in go_current_version.stdout }}
+  tags: [go]
+
+- name: Display current status
+  debug:
+    msg: |
+      Current Go: {{ 'Not installed' if go_current_version.rc != 0 else go_current_version.stdout.split()[2] }}
+      Target Go version: {{ go_target_version }}
+      Action: {{ 'Install/Update' if go_needs_install else 'Skip (already installed)' }}
+  tags: [go]
+
+- name: Download and install Go
+  when: go_needs_install
+  block:
+    - name: Set Go download URL
+      set_fact:
+        go_download_url: "{{ go_download_url_base }}/{{ go_target_version }}.{{ go_arch }}.tar.gz"
+      tags: [go]
+
+    - name: Create temporary directory for download
+      tempfile:
+        state: directory
+        prefix: "go_install_"
+      register: go_temp_dir
+      tags: [go]
+
+    - name: Download Go tarball
+      get_url:
+        url: "{{ go_download_url }}"
+        dest: "{{ go_temp_dir.path }}/go.tar.gz"
+        mode: '0644'
+        timeout: 300
+      tags: [go]
+
+    - name: Remove existing Go installation
+      file:
+        path: "{{ go_install_dir }}"
+        state: absent
+      tags: [go]
+
+    - name: Ensure Go installation directory exists
+      file:
+        path: "{{ go_install_dir }}"
+        state: directory
+        mode: '0755'
+      tags: [go]
+
+    - name: Extract Go tarball
+      unarchive:
+        src: "{{ go_temp_dir.path }}/go.tar.gz"
+        dest: "{{ ansible_env.HOME }}/.local/share"
+        remote_src: true
+        creates: "{{ go_install_dir }}/bin/go"
+      tags: [go]
+
+    - name: Cleanup temporary directory
+      file:
+        path: "{{ go_temp_dir.path }}"
+        state: absent
+      tags: [go]
+
+- name: Setup Go environment configuration in shell files
+  lineinfile:
+    path: "{{ item }}"
+    line: |
+      # Go XDG-compliant environment configuration
+      export GOROOT="{{ go_root }}"
+      export GOPATH="{{ go_path }}"
+      export GOCACHE="{{ go_cache }}"
+      export GOMODCACHE="{{ go_modcache }}"
+      export GOBIN="{{ go_user_bin_dir }}"
+      export GO111MODULE=on
+      export GOPROXY=https://proxy.golang.org,direct
+      export GOSUMDB=sum.golang.org
+      export PATH="{{ go_bin_dir }}:{{ go_user_bin_dir }}:$PATH"
+    regexp: "^# Go XDG-compliant environment configuration"
+    create: true
+    mode: '0644'
+  loop:
+    - "{{ ansible_env.HOME }}/.bashrc"
+    - "{{ ansible_env.HOME }}/.config/zsh/.zshrc"
+    - "{{ ansible_env.HOME }}/.profile"
+  when: go_setup_path
+  tags: [go, path]
+
+- name: Create Go workspace structure
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ go_path }}/src"
+    - "{{ go_path }}/pkg" 
+    - "{{ go_path }}/bin"
+  when: go_create_workspace
+  tags: [go, workspace]
+
+- name: Install Go packages
+  shell: |
+    export GOROOT="{{ go_root }}"
+    export GOPATH="{{ go_path }}"
+    export GOCACHE="{{ go_cache }}"
+    export GOMODCACHE="{{ go_modcache }}"
+    export GOBIN="{{ go_user_bin_dir }}"
+    export PATH="{{ go_bin_dir }}:{{ go_user_bin_dir }}:{{ ansible_env.PATH }}"
+    "{{ go_bin_dir }}/go" install {{ item }}
+  args:
+    executable: /bin/bash
+  loop: "{{ go_packages }}"
+  when: go_packages | length > 0
+  register: go_package_install_result
+  changed_when: go_package_install_result.rc == 0
+  tags: [go, packages]
+
+- name: Verify Go installation
+  command: "{{ go_bin_dir }}/go version"
+  register: go_verify_result
+  changed_when: false
+  environment:
+    PATH: "{{ go_bin_dir }}:{{ ansible_env.PATH }}"
+  tags: [go, verify]
+
+- name: Check Go environment
+  shell: |
+    export GOROOT="{{ go_root }}"
+    export GOPATH="{{ go_path }}"
+    export GOCACHE="{{ go_cache }}"
+    export PATH="{{ go_bin_dir }}:{{ ansible_env.PATH }}"
+    "{{ go_bin_dir }}/go" env GOROOT GOPATH GOCACHE
+  args:
+    executable: /bin/bash
+  register: go_env_result
+  changed_when: false
+  tags: [go, verify]
+
+- name: Display installation verification
+  debug:
+    msg: |
+      ✅ Go installation verified!
+      
+      📍 Installation Details:
+      • Go Version: {{ go_verify_result.stdout.split()[2] }}
+      • Go Binary: {{ go_bin_dir }}/go
+      • GOROOT: {{ go_root }}
+      • GOPATH: {{ go_path }}
+      
+      📁 XDG-Compliant Directories:
+      • Go SDK: {{ go_install_dir }}/
+      • Workspace: {{ go_path }}/
+      • Cache: {{ go_cache }}/
+      • Module Cache: {{ go_modcache }}/
+      • Config: {{ go_config_dir }}/
+      • User Binaries: {{ go_user_bin_dir }}/
+      
+      🚀 Next Steps:
+      1. Restart your shell or source your profile: source ~/.profile
+      2. Test Go: go version
+      3. Create a new module: go mod init myproject
+      4. Install packages: go install package@latest
+      5. Build projects: go build
+      
+      💡 Quick Commands:
+      • go version          (check Go version)
+      • go env              (show Go environment)
+      • go mod init <name>  (create new module)
+      • go get <package>    (add dependency)
+      • go install <pkg>    (install package globally)
+      • go build           (build current package)
+      • go run main.go     (run Go file)
+  tags: [go, verify]

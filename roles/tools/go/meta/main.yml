@@ -1,0 +1,28 @@
+---
+galaxy_info:
+  author: System Administrator
+  description: Install and configure Go programming language with XDG Base Directory Specification compliance
+  license: license (GPL-2.0-or-later, MIT, etc)
+  min_ansible_version: "2.10"
+  
+  platforms:
+    - name: Ubuntu
+      versions:
+        - "20.04"
+        - "22.04"
+        - "24.04"
+    - name: Debian
+      versions:
+        - buster
+        - bullseye
+        - bookworm
+
+  galaxy_tags:
+    - go
+    - golang
+    - programming
+    - development
+    - xdg
+    - compiler
+
+dependencies: []

@@ -7,8 +7,8 @@ neovim_install_method: "github"
 # Version to install (use 'latest' for most recent release)
 neovim_version: "latest"
 
-# Installation directory for Neovim binary and supporting files  
-neovim_install_dir: "{{ ansible_env.HOME }}/.local"
+# Installation directory for Neovim binary and supporting files (system-wide)
+neovim_install_dir: "/usr/local"
 
 # Whether to update Neovim if already installed
 neovim_force_update: false

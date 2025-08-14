@@ -37,7 +37,7 @@
     msg: |
       WARNING: Neovim not found at {{ fvim_nvim_path }}
       FVim requires Neovim to be installed first.
-      Install with: ansible-playbook user.yml --tags neovim
+      Install with: ansible-playbook root.yml --tags neovim
   when: not neovim_binary_check.stat.exists
   tags: [fvim, dependencies]
 

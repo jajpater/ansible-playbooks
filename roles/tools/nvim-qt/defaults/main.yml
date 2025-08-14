@@ -1,0 +1,52 @@
+---
+# nvim-qt installation and configuration defaults
+
+# nvim-qt version to install (use 'latest' for most recent release)
+nvim_qt_version: "latest"
+
+# Installation directory for nvim-qt binary (system-wide)
+nvim_qt_install_dir: "/usr/local"
+
+# Build directory (temporary)
+nvim_qt_build_dir: "/tmp/nvim-qt-build"
+
+# Neovim executable path (should point to your system-wide nvim)
+nvim_qt_nvim_path: "/usr/local/bin/nvim"
+
+# Whether to force rebuild if already installed
+nvim_qt_force_rebuild: false
+
+# Whether to create desktop entry
+nvim_qt_create_desktop_entry: true
+
+# Whether to setup as default editor for GUI usage
+nvim_qt_setup_as_editor: true
+
+# Build configuration
+nvim_qt_build_type: "Release"
+
+# Qt version requirement
+nvim_qt_qt_version: "5"
+
+# Dependencies that need to be installed via apt
+nvim_qt_system_dependencies:
+  - git
+  - cmake
+  - build-essential
+  - qtbase5-dev
+  - qttools5-dev
+  - qttools5-dev-tools
+  - libqt5svg5-dev
+  - pkg-config
+
+# GitHub repository
+nvim_qt_github_repo: "equalsraf/neovim-qt"
+nvim_qt_github_api_url: "https://api.github.com/repos/{{ nvim_qt_github_repo }}"
+
+# Desktop entry configuration
+nvim_qt_desktop_entry:
+  name: "Neovim Qt"
+  comment: "Qt GUI for Neovim"
+  categories: "TextEditor;Development;IDE;"
+  keywords: "vim;neovim;editor;qt;gui;"
+  mime_types: "text/plain;text/x-csrc;text/x-chdr;text/x-c++src;text/x-c++hdr;text/x-python;text/x-java;text/x-lua;text/x-script;text/x-makefile;text/x-shellscript;"

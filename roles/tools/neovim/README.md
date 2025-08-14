@@ -5,7 +5,7 @@ This Ansible role installs and maintains the latest Neovim from GitHub releases 
 ## Features
 
 - **Always Latest**: Installs from official GitHub releases, not outdated distribution packages
-- **User Installation**: Installs to `~/.local` following XDG Base Directory Specification
+- **System Installation**: Installs to `/usr/local` for system-wide availability
 - **Smart Updates**: Only downloads/installs when version changes or forced
 - **Shell Integration**: Optional vi/vim aliases for seamless transition
 - **Desktop Entry**: Creates application launcher for GUI environments
@@ -15,7 +15,7 @@ This Ansible role installs and maintains the latest Neovim from GitHub releases 
 
 - Ubuntu/Debian-based system with apt package manager
 - Internet connection for downloading releases
-- User privileges (role should NOT be run with `become: true`)
+- Sudo privileges (role requires `become: true` for system installation)
 
 ## Role Variables
 
@@ -28,8 +28,8 @@ neovim_install_method: "github"
 # Version to install (use 'latest' for most recent release)
 neovim_version: "latest"
 
-# Installation directory for Neovim binary and supporting files  
-neovim_install_dir: "{{ ansible_env.HOME }}/.local"
+# Installation directory for Neovim binary and supporting files (system-wide)
+neovim_install_dir: "/usr/local"
 
 # Whether to update Neovim if already installed
 neovim_force_update: false
@@ -51,7 +51,7 @@ neovim_init_config: false
 
 ### Basic Installation
 
-Add the role to your playbook (run as user, not root):
+Add the role to your playbook (requires sudo privileges):
 
 ```yaml
 - role: tools/neovim
@@ -109,7 +109,7 @@ Install a specific Neovim version:
 2. **Release Detection**: Gets latest or specified version from GitHub API
 3. **Version Comparison**: Checks if update is needed
 4. **Download**: Downloads official Linux x86_64 tarball
-5. **Installation**: Extracts to `~/.local/{bin,lib,share}/`
+5. **Installation**: Extracts to `/usr/local/{bin,lib,share}/`
 6. **Configuration**: Creates config directory and optional basic configuration
 7. **Integration**: Sets up desktop entry and shell aliases (if enabled)
 8. **Verification**: Confirms successful installation
@@ -119,7 +119,7 @@ Install a specific Neovim version:
 After installation:
 
 ```
-~/.local/
+/usr/local/
 ├── bin/nvim              # Neovim binary
 ├── lib/nvim/             # Runtime libraries
 └── share/nvim/           # Runtime files, help, etc.
@@ -127,21 +127,21 @@ After installation:
 ~/.config/nvim/           # Configuration directory
 └── init.lua              # Main configuration file (if created)
 
-~/.local/share/applications/
+/usr/share/applications/
 └── nvim.desktop          # Desktop entry (if created)
 ```
 
 ## Environment Variables
 
-The role doesn't set special environment variables since Neovim follows standard paths:
-- `~/.local/bin/nvim` - The executable (ensure `~/.local/bin` is in your PATH)
-- `~/.config/nvim/` - Configuration directory (XDG standard)
+The role installs to system-standard paths:
+- `/usr/local/bin/nvim` - The executable (automatically in PATH)
+- `~/.config/nvim/` - Configuration directory (XDG standard, per-user)
 
 ## Post-Installation
 
 After installation:
 
-1. **Verify**: `~/.local/bin/nvim --version`
+1. **Verify**: `nvim --version`
 2. **Configure**: Edit `~/.config/nvim/init.lua` for custom configuration
 3. **Package Manager**: Consider installing a plugin manager like [lazy.nvim](https://github.com/folke/lazy.nvim)
 4. **GUI Frontends**: Install Neovide or FVim for enhanced GUI experience
@@ -189,7 +189,7 @@ This role installs the core Neovim engine. For GUI experiences:
   hosts: localhost
   connection: local
   gather_facts: true
-  become: false  # Important: run as user, not root
+  become: true   # Required: needs sudo for system installation
 
   roles:
     - role: tools/neovim
@@ -202,8 +202,8 @@ This role installs the core Neovim engine. For GUI experiences:
 
 ## Troubleshooting
 
-**Command not found**: Ensure `~/.local/bin` is in your PATH
-**Permission denied**: Don't run with `become: true` - this is user-level installation
+**Command not found**: `/usr/local/bin` should be automatically in PATH
+**Permission denied**: Role requires `sudo` access for system installation
 **Old version**: Use `neovim_force_update: true` to reinstall
 **Dependencies missing**: Install with `sudo apt install curl wget tar xz-utils`
 

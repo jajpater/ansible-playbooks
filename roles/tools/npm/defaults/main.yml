@@ -1,0 +1,56 @@
+---
+# npm installation and configuration defaults
+
+# Installation method: 'nodejs' (install Node.js with npm) or 'standalone' (npm only)
+npm_install_method: "nodejs"
+
+# Node.js version to install (use 'latest' for most recent LTS release)
+nodejs_version: "latest"
+
+# Installation directory for Node.js and npm binaries
+npm_install_dir: "{{ ansible_env.HOME }}/.local"
+
+# XDG-compliant npm configuration directory
+npm_config_dir: "{{ ansible_env.HOME }}/.config/npm"
+
+# XDG-compliant npm cache directory
+npm_cache_dir: "{{ ansible_env.HOME }}/.cache/npm"
+
+# XDG-compliant npm data directory (for global packages)
+npm_data_dir: "{{ ansible_env.HOME }}/.local/share/npm"
+
+# npm global packages directory
+npm_global_dir: "{{ npm_data_dir }}/lib/node_modules"
+
+# npm global bin directory
+npm_global_bin_dir: "{{ npm_data_dir }}/bin"
+
+# Whether to force update if already installed
+npm_force_update: false
+
+# Whether to create XDG directories if they don't exist
+npm_create_xdg_dirs: true
+
+# Whether to setup shell PATH configuration
+npm_setup_path: true
+
+# npm registry URL
+npm_registry: "https://registry.npmjs.org/"
+
+# npm configuration settings (XDG-compliant)
+npm_config:
+  cache: "{{ npm_cache_dir }}"
+  prefix: "{{ npm_data_dir }}"
+  init-module: "{{ npm_config_dir }}/npm-init.js"
+  userconfig: "{{ npm_config_dir }}/npmrc"
+
+# GitHub API settings for Node.js releases
+nodejs_github_repo: "nodejs/node"
+nodejs_github_api_url: "https://api.github.com/repos/{{ nodejs_github_repo }}"
+
+# Default global packages to install
+npm_global_packages: []
+  # - name: "typescript"
+  #   version: "latest"
+  # - name: "@vue/cli"
+  #   version: "latest"

@@ -1,0 +1,29 @@
+---
+# Claude Code installation and configuration defaults
+
+# Claude Code package name and version
+claude_code_package: "@anthropic-ai/claude-code"
+claude_code_version: "latest"
+
+# Installation paths (using XDG-compliant npm setup)
+claude_code_npm_bin: "{{ ansible_env.HOME }}/.local/bin/npm"
+claude_code_global_bin_dir: "{{ ansible_env.HOME }}/.local/share/npm/bin"
+
+# XDG-compliant configuration directory
+claude_code_config_dir: "{{ ansible_env.HOME }}/.config/claude-code"
+
+# Whether to force reinstall if already installed
+claude_code_force_install: false
+
+# Whether to create desktop entry
+claude_code_create_desktop_entry: true
+
+# Whether to setup shell aliases
+claude_code_setup_aliases: true
+
+# Authentication settings
+claude_code_api_key_file: "{{ claude_code_config_dir }}/api_key"
+
+# Dependencies
+claude_code_dependencies:
+  - npm

@@ -31,3 +31,15 @@
 
     - role: sys/deskflow
       tags: [deskflow]
+
+    - role: tools/neovim
+      tags: [neovim, vim, editor]
+
+    - role: tools/nvim-qt
+      tags: [nvim-qt]
+
+    - role: tools/neovide
+      tags: [neovide, neovim-gui, gui]
+
+    - role: tools/fvim
+      tags: [fvim, neovim-gui, gui]
