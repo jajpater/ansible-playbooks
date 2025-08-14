@@ -52,7 +52,7 @@
   set_fact:
     nvim_qt_release: "{{ nvim_qt_latest_release.json if nvim_qt_version == 'latest' else nvim_qt_specific_release.json }}"
     nvim_qt_target_version: "{{ nvim_qt_latest_release.json.tag_name if nvim_qt_version == 'latest' else nvim_qt_version }}"
-  when: (nvim_qt_version == 'latest' and nvim_qt_latest_release is defined and not nvim_qt_latest_release.skipped) or (nvim_qt_version != 'latest' and nvim_qt_specific_release is defined and not nvim_qt_specific_release.skipped)
+  when: (nvim_qt_version == 'latest' and nvim_qt_latest_release is defined and not (nvim_qt_latest_release.skipped | default(false))) or (nvim_qt_version != 'latest' and nvim_qt_specific_release is defined and not (nvim_qt_specific_release.skipped | default(false)))
   tags: [nvim-qt]
 
 - name: Set fallback version for check mode

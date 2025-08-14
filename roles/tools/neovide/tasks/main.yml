@@ -64,9 +64,9 @@
 
 - name: Set Neovide release facts
   set_fact:
-    neovide_release: "{{ neovide_latest_release if neovide_version == 'latest' else neovide_specific_release }}"
-    neovide_target_version: "{{ neovide_latest_release.json.tag_name if neovide_version == 'latest' else neovide_version }}"
-  when: (neovide_version == 'latest' and neovide_latest_release is defined and not neovide_latest_release.skipped) or (neovide_version != 'latest' and neovide_specific_release is defined and not neovide_specific_release.skipped)
+    neovide_release: "{{ neovide_latest_release if neovide_version == 'latest' and neovide_latest_release is defined else neovide_specific_release if neovide_version != 'latest' and neovide_specific_release is defined else { } }}"
+    neovide_target_version: "{{ neovide_latest_release.json.tag_name if neovide_version == 'latest' and neovide_latest_release is defined else neovide_version if neovide_version != 'latest' and neovide_specific_release is defined else neovide_version }}"
+  when: (neovide_version == 'latest' and neovide_latest_release is defined and neovide_latest_release.json is defined and not (neovide_latest_release.skipped | default(false))) or (neovide_version != 'latest' and neovide_specific_release is defined and neovide_specific_release.json is defined and not (neovide_specific_release.skipped | default(false)))
   tags: [neovide]
 
 - name: Set fallback version for check mode

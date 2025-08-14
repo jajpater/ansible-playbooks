@@ -9,6 +9,7 @@ This role installs and manages scripts from GitHub repositories. It provides a f
 - ✅ **Update Control**: Configurable update behavior (auto, always, never, force)
 - ✅ **User Installation**: Installs in user's local bin directory (`~/.local/bin`)
 - ✅ **Dependency Checking**: Optional dependency validation
+- ✅ **Python Dependencies**: Smart Python package installation via pipx (with pip fallback)
 - ✅ **Post-Install Commands**: Run custom commands after installation
 - ✅ **Predefined Configs**: Built-in configurations for popular scripts
 - ✅ **Verification**: Validates successful installation
@@ -44,7 +45,8 @@ github_script_force_update: false
 
 ### Advanced Options
 ```yaml
-github_script_dependencies: []            # List of packages to check
+github_script_dependencies: []            # List of system packages to check
+github_script_python_dependencies: []     # List of Python packages to install via pip
 github_script_post_install_commands: []   # Commands to run after install
 github_script_verify_installation: true   # Verify installation
 ```
@@ -64,7 +66,8 @@ This automatically configures:
 - Repository: `soimort/translate-shell`
 - Script name: `trans`
 - Direct URL: `https://git.io/trans`
-- Dependencies: `curl`, `gawk`
+- System Dependencies: `curl`, `gawk`, `python3`, `pip3`
+- Python Dependencies: `googletrans==4.0.0rc1`, `requests`, `beautifulsoup4`, `lxml`
 
 ## Usage Examples
 
@@ -153,9 +156,10 @@ github_script_configs:
   my-script:
     repo: "user/repository"
     name: "script-name"
-    url: "https://direct-url.com/script"  # Optional
-    dependencies: ["curl", "jq"]           # Optional
-    post_install_commands:                 # Optional
+    url: "https://direct-url.com/script"         # Optional
+    dependencies: ["curl", "jq"]                 # Optional: System packages
+    python_dependencies: ["requests", "bs4"]     # Optional: Python packages
+    post_install_commands:                       # Optional
       - "{{ github_script_install_dir }}/script-name --version"
 ```
 
@@ -179,12 +183,29 @@ roles/tools/github_script/
 └── README.md             # This documentation
 ```
 
+## Python Dependencies Strategy
+
+The role uses a smart approach for installing Python dependencies:
+
+1. **pipx First**: Attempts to install packages using pipx for isolated environments
+2. **pip Fallback**: Falls back to `pip --user` for packages that fail with pipx
+3. **Direct pip**: Uses `pip --user` directly if pipx is unavailable
+
+This ensures maximum compatibility while preferring isolated installations where possible.
+
+### Benefits:
+- **Isolated Environments**: pipx creates separate virtual environments
+- **No Conflicts**: Prevents dependency conflicts between packages
+- **Fallback Support**: Ensures installation even if pipx fails
+- **User-Level**: No system-wide changes or sudo required
+
 ## Troubleshooting
 
 **Download fails**: Check internet connection and URL validity
 **Permission denied**: Verify `github_script_mode` is set correctly
 **Command not found**: Ensure `~/.local/bin` is in your PATH
 **Dependencies missing**: Install required packages manually
+**Python package fails**: Check the installation summary for pipx/pip status
 
 ## License
 

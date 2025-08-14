@@ -7,6 +7,7 @@
     github_script_name: "{{ github_script_configs[github_script_config].name | default(github_script_name) }}"
     github_script_url: "{{ github_script_configs[github_script_config].url | default(github_script_url) }}"
     github_script_dependencies: "{{ github_script_configs[github_script_config].dependencies | default(github_script_dependencies) }}"
+    github_script_python_dependencies: "{{ github_script_configs[github_script_config].python_dependencies | default([]) }}"
     github_script_post_install_commands: "{{ github_script_configs[github_script_config].post_install_commands | default(github_script_post_install_commands) }}"
   when: github_script_config != "" and github_script_config in github_script_configs
 
@@ -35,6 +36,22 @@
   loop: "{{ dependency_check.results }}"
   loop_control:
     label: "{{ item.item }}"
+
+- name: Install Python dependencies with pip --user (if specified)
+  command: python3 -m pip install --user --break-system-packages {{ github_script_python_dependencies | join(' ') }}
+  register: python_deps_install
+  when: 
+    - github_script_python_dependencies is defined
+    - github_script_python_dependencies | length > 0
+  changed_when: "'Successfully installed' in python_deps_install.stdout or 'Requirement already satisfied' not in python_deps_install.stdout"
+
+- name: Display Python dependencies installation result
+  debug:
+    msg: |
+      Python dependencies installed with pip --user:
+      {{ 'SUCCESS - ' + (python_deps_install.stdout | default('Installed successfully')) if python_deps_install.changed else 'ALREADY INSTALLED' }}
+  when: 
+    - python_deps_install is defined
 
 - name: Create installation directory
   file:

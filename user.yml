@@ -54,8 +54,6 @@
     - role: tools/rbw
       tags: [rbw, bitwarden, password-manager]
 
-
-
     - role: tools/gdu
       tags: [gdu, disk-usage, analyzer]
 
@@ -63,3 +61,4 @@
       vars:
         github_script_config: "translate-shell"
       tags: [github-script, translate-shell, translator]
+

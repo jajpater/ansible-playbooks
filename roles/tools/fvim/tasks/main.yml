@@ -65,7 +65,7 @@
   set_fact:
     fvim_release: "{{ fvim_latest_release if fvim_version == 'latest' else fvim_specific_release }}"
     fvim_target_version: "{{ fvim_latest_release.json.tag_name if fvim_version == 'latest' else fvim_version }}"
-  when: (fvim_version == 'latest' and fvim_latest_release is defined and not fvim_latest_release.skipped) or (fvim_version != 'latest' and fvim_specific_release is defined and not fvim_specific_release.skipped)
+  when: (fvim_version == 'latest' and fvim_latest_release is defined and not (fvim_latest_release.skipped | default(false))) or (fvim_version != 'latest' and fvim_specific_release is defined and not (fvim_specific_release.skipped | default(false)))
   tags: [fvim]
 
 - name: Set fallback version for check mode

@@ -36,10 +36,10 @@
       tags: [neovim, vim, editor]
 
     - role: tools/nvim-qt
-      tags: [nvim-qt]
+      tags: [nvim-qt, neovim-gui]
 
     - role: tools/neovide
-      tags: [neovide, neovim-gui, gui]
+      tags: [neovide, neovim-gui]
 
     - role: tools/fvim
-      tags: [fvim, neovim-gui, gui]
+      tags: [fvim, neovim-gui]

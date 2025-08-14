@@ -37,7 +37,8 @@ github_script_configs:
     repo: "soimort/translate-shell"
     name: "trans"
     url: "https://git.io/trans"
-    dependencies: ["curl", "gawk"]
+    dependencies: ["curl", "gawk", "python3", "pip3"]
+    python_dependencies: ["googletrans==4.0.0rc1", "requests", "beautifulsoup4", "lxml"]
     post_install_commands:
       - "{{ github_script_install_dir }}/trans --version"
   
