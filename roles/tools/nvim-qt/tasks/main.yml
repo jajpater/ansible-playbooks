@@ -18,7 +18,7 @@
 - name: Display Neovim version
   debug:
     msg: "Found Neovim: {{ nvim_qt_nvim_check.stdout.split()[1] }}"
-  when: nvim_qt_nvim_check.rc == 0
+  when: nvim_qt_nvim_check.rc == 0 and nvim_qt_nvim_check.stdout is defined and nvim_qt_nvim_check.stdout.split() | length > 1
   tags: [nvim-qt, dependencies]
 
 - name: Install Qt development dependencies
@@ -200,7 +200,7 @@
       📍 Installation Details:
       • nvim-qt Version: {{ nvim_qt_target_version }}
       • nvim-qt Binary: {{ nvim_qt_install_dir }}/bin/nvim-qt
-      • Using Neovim: {{ nvim_qt_nvim_path }} ({{ nvim_qt_nvim_check.stdout.split()[1] }})
+      • Using Neovim: {{ nvim_qt_nvim_path }}{{ ' (' + nvim_qt_nvim_check.stdout.split()[1] + ')' if nvim_qt_nvim_check.stdout is defined and nvim_qt_nvim_check.stdout.split() | length > 1 else '' }}
       
       🖥️  Desktop Integration:
       • Desktop Entry: /usr/share/applications/nvim-qt.desktop
