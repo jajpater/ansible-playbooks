@@ -79,7 +79,7 @@
   tags: [neovim]
 
 - name: Download and install Neovim
-  when: neovim_needs_install
+  when: neovim_needs_install and neovim_release is defined
   block:
     - name: Find Linux x86_64 tarball download URL
       set_fact:

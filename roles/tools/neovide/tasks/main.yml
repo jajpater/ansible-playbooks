@@ -66,13 +66,13 @@
   set_fact:
     neovide_release: "{{ neovide_latest_release if neovide_version == 'latest' else neovide_specific_release }}"
     neovide_target_version: "{{ neovide_latest_release.json.tag_name if neovide_version == 'latest' else neovide_version }}"
-  when: (neovide_version == 'latest' and neovide_latest_release is defined) or (neovide_version != 'latest' and neovide_specific_release is defined)
+  when: (neovide_version == 'latest' and neovide_latest_release is defined and not neovide_latest_release.skipped) or (neovide_version != 'latest' and neovide_specific_release is defined and not neovide_specific_release.skipped)
   tags: [neovide]
 
 - name: Set fallback version for check mode
   set_fact:
     neovide_target_version: "{{ neovide_version if neovide_version != 'latest' else 'latest' }}"
-  when: (neovide_version == 'latest' and neovide_latest_release is not defined) or (neovide_version != 'latest' and neovide_specific_release is not defined)
+  when: (neovide_version == 'latest' and (neovide_latest_release is not defined or neovide_latest_release.skipped | default(false))) or (neovide_version != 'latest' and (neovide_specific_release is not defined or neovide_specific_release.skipped | default(false)))
   tags: [neovide]
 
 - name: Check current Neovide version (AppImage)
@@ -114,7 +114,7 @@
   tags: [neovide]
 
 - name: Download and install Neovide (AppImage method)
-  when: neovide_needs_install and neovide_install_method == "appimage"
+  when: neovide_needs_install and neovide_install_method == "appimage" and neovide_release is defined
   block:
     - name: Find AppImage download URL
       set_fact:
@@ -142,7 +142,7 @@
       tags: [neovide]
 
 - name: Download and install Neovide (tarball method)
-  when: neovide_needs_install and neovide_install_method == "tarball"
+  when: neovide_needs_install and neovide_install_method == "tarball" and neovide_release is defined
   block:
     - name: Find Linux tarball download URL
       set_fact:

@@ -52,13 +52,13 @@
   set_fact:
     nvim_qt_release: "{{ nvim_qt_latest_release.json if nvim_qt_version == 'latest' else nvim_qt_specific_release.json }}"
     nvim_qt_target_version: "{{ nvim_qt_latest_release.json.tag_name if nvim_qt_version == 'latest' else nvim_qt_version }}"
-  when: (nvim_qt_version == 'latest' and nvim_qt_latest_release is defined) or (nvim_qt_version != 'latest' and nvim_qt_specific_release is defined)
+  when: (nvim_qt_version == 'latest' and nvim_qt_latest_release is defined and not nvim_qt_latest_release.skipped) or (nvim_qt_version != 'latest' and nvim_qt_specific_release is defined and not nvim_qt_specific_release.skipped)
   tags: [nvim-qt]
 
 - name: Set fallback version for check mode
   set_fact:
     nvim_qt_target_version: "{{ nvim_qt_version if nvim_qt_version != 'latest' else 'latest' }}"
-  when: (nvim_qt_version == 'latest' and nvim_qt_latest_release is not defined) or (nvim_qt_version != 'latest' and nvim_qt_specific_release is not defined)
+  when: (nvim_qt_version == 'latest' and (nvim_qt_latest_release is not defined or nvim_qt_latest_release.skipped | default(false))) or (nvim_qt_version != 'latest' and (nvim_qt_specific_release is not defined or nvim_qt_specific_release.skipped | default(false)))
   tags: [nvim-qt]
 
 - name: Check current nvim-qt version
@@ -85,7 +85,7 @@
   tags: [nvim-qt]
 
 - name: Build and install nvim-qt from source
-  when: nvim_qt_needs_build
+  when: nvim_qt_needs_build and nvim_qt_release is defined
   block:
     - name: Remove existing build directory
       file:

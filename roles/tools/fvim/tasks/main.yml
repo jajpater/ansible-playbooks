@@ -65,13 +65,13 @@
   set_fact:
     fvim_release: "{{ fvim_latest_release if fvim_version == 'latest' else fvim_specific_release }}"
     fvim_target_version: "{{ fvim_latest_release.json.tag_name if fvim_version == 'latest' else fvim_version }}"
-  when: (fvim_version == 'latest' and fvim_latest_release is defined) or (fvim_version != 'latest' and fvim_specific_release is defined)
+  when: (fvim_version == 'latest' and fvim_latest_release is defined and not fvim_latest_release.skipped) or (fvim_version != 'latest' and fvim_specific_release is defined and not fvim_specific_release.skipped)
   tags: [fvim]
 
 - name: Set fallback version for check mode
   set_fact:
     fvim_target_version: "{{ fvim_version if fvim_version != 'latest' else 'latest' }}"
-  when: (fvim_version == 'latest' and fvim_latest_release is not defined) or (fvim_version != 'latest' and fvim_specific_release is not defined)
+  when: (fvim_version == 'latest' and (fvim_latest_release is not defined or fvim_latest_release.skipped | default(false))) or (fvim_version != 'latest' and (fvim_specific_release is not defined or fvim_specific_release.skipped | default(false)))
   tags: [fvim]
 
 - name: Check current FVim installation
@@ -107,7 +107,7 @@
   tags: [fvim]
 
 - name: Download and install FVim (Debian package method)
-  when: fvim_needs_install and fvim_install_method == "deb"
+  when: fvim_needs_install and fvim_install_method == "deb" and fvim_release is defined
   block:
     - name: Find Debian package download URL
       set_fact:
