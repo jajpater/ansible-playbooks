@@ -66,6 +66,13 @@
   set_fact:
     neovide_release: "{{ neovide_latest_release if neovide_version == 'latest' else neovide_specific_release }}"
     neovide_target_version: "{{ neovide_latest_release.json.tag_name if neovide_version == 'latest' else neovide_version }}"
+  when: (neovide_version == 'latest' and neovide_latest_release is defined) or (neovide_version != 'latest' and neovide_specific_release is defined)
+  tags: [neovide]
+
+- name: Set fallback version for check mode
+  set_fact:
+    neovide_target_version: "{{ neovide_version if neovide_version != 'latest' else 'latest' }}"
+  when: (neovide_version == 'latest' and neovide_latest_release is not defined) or (neovide_version != 'latest' and neovide_specific_release is not defined)
   tags: [neovide]
 
 - name: Check current Neovide version (AppImage)

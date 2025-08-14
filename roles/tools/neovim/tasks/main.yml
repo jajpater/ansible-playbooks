@@ -46,6 +46,13 @@
   set_fact:
     neovim_release: "{{ neovim_latest_release if neovim_version == 'latest' else neovim_specific_release }}"
     neovim_target_version: "{{ neovim_latest_release.json.tag_name if neovim_version == 'latest' else neovim_version }}"
+  when: (neovim_version == 'latest' and neovim_latest_release is defined and not neovim_latest_release.skipped) or (neovim_version != 'latest' and neovim_specific_release is defined and not neovim_specific_release.skipped)
+  tags: [neovim]
+
+- name: Set fallback version for check mode
+  set_fact:
+    neovim_target_version: "{{ neovim_version if neovim_version != 'latest' else 'latest' }}"
+  when: (neovim_version == 'latest' and (neovim_latest_release is not defined or neovim_latest_release.skipped | default(false))) or (neovim_version != 'latest' and (neovim_specific_release is not defined or neovim_specific_release.skipped | default(false)))
   tags: [neovim]
 
 - name: Check current Neovim version
