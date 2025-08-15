@@ -1,0 +1,84 @@
+---
+# Git Credential Manager installation and configuration defaults
+
+# Version to install (use 'latest' for most recent stable release)
+gcm_version: "latest"
+
+# Whether to force update if already installed
+gcm_force_update: false
+
+# Installation method (currently only 'deb' is supported on Ubuntu/Debian)
+gcm_install_method: "deb"
+
+# GitHub API URL for releases
+gcm_github_api_url: "https://api.github.com/repos/git-ecosystem/git-credential-manager/releases"
+
+# Architecture (automatically determined but can be overridden)
+gcm_arch: "{{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture }}"
+
+# Package name pattern for different architectures
+gcm_package_pattern: "gcm-linux_{{ gcm_arch }}.{{ gcm_resolved_version | regex_replace('^v', '') }}.deb"
+
+# Temporary download directory
+gcm_temp_dir: "/tmp"
+
+# Whether to configure Git to use GCM as the credential helper
+gcm_configure_git: true
+
+# Git configuration scope (can be 'system', 'global', or 'local')
+gcm_git_config_scope: "global"
+
+# Whether to configure GCM for specific hosting providers
+gcm_configure_providers: true
+
+# Supported Git hosting providers to configure
+gcm_providers:
+  github:
+    enabled: true
+    credential_helper: "!gh auth git-credential"
+    fallback_to_gcm: true
+  gitlab:
+    enabled: true
+    url_patterns: ["gitlab.com", "*.gitlab.io"]
+  azure_devops:
+    enabled: true
+    url_patterns: ["dev.azure.com", "*.visualstudio.com"]
+  bitbucket:
+    enabled: true
+    url_patterns: ["bitbucket.org"]
+
+# GCM configuration options
+gcm_config:
+  # Credential store backend (options: secretservice, gpg, cache, plaintext)
+  credential_store: "secretservice"
+  
+  # Whether to use a GUI prompt when available
+  gui_prompt: true
+  
+  # Autodetect timeout for credential helpers (seconds)
+  autodetect_timeout: 30
+  
+  # Whether to trace GCM operations (useful for debugging)
+  trace: false
+  
+  # HTTP proxy settings (if needed)
+  http_proxy: ""
+  https_proxy: ""
+  
+  # Whether to use the system web browser for OAuth flows
+  use_system_browser: true
+
+# Whether to create desktop integration (for GUI prompts)
+gcm_create_desktop_integration: true
+
+# Whether to validate the installation after completion
+gcm_validate_installation: true
+
+# Packages required for GCM to function properly
+gcm_required_packages:
+  - git
+  - curl
+  - ca-certificates
+
+# Whether to install required system packages (requires sudo)
+gcm_install_required_packages: true

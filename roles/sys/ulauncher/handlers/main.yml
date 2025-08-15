@@ -1,0 +1,13 @@
+---
+- name: update apt cache
+  apt:
+    update_cache: yes
+  when: ansible_pkg_mgr == "apt"
+
+- name: verify ulauncher installation
+  command: ulauncher --version
+  register: ulauncher_version_output
+  changed_when: false
+  failed_when: ulauncher_version_output.rc != 0
+  ignore_errors: yes
+  listen: verify ulauncher installation

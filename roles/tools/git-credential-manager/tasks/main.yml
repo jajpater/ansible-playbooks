@@ -1,0 +1,237 @@
+---
+- name: Install required system packages
+  package:
+    name: "{{ gcm_required_packages }}"
+    state: present
+  when: gcm_install_required_packages
+  tags: [gcm, dependencies]
+
+- name: Check for existing Git Credential Manager installation
+  command: git-credential-manager --version
+  register: gcm_current_version
+  changed_when: false
+  failed_when: false
+  tags: [gcm]
+
+- name: Get latest GCM version from GitHub API
+  uri:
+    url: "{{ gcm_github_api_url }}/latest"
+    method: GET
+    return_content: true
+  register: gcm_latest_release
+  when: gcm_version == "latest"
+  tags: [gcm]
+
+- name: Set GCM version facts
+  set_fact:
+    gcm_resolved_version: "{{ gcm_latest_release.json.tag_name if gcm_version == 'latest' else gcm_version }}"
+  tags: [gcm]
+
+- name: Determine if GCM installation/update is needed
+  set_fact:
+    gcm_needs_install: >-
+      {{ gcm_current_version.rc != 0 or 
+         gcm_force_update or 
+         gcm_resolved_version not in (gcm_current_version.stdout | default('')) }}
+  tags: [gcm]
+
+- name: Display current installation status
+  debug:
+    msg: |
+      Current GCM: {{ 'Not installed' if gcm_current_version.rc != 0 else gcm_current_version.stdout }}
+      Target version: {{ gcm_resolved_version }}
+      Action: {{ 'Install/Update' if gcm_needs_install else 'Skip (already installed)' }}
+  tags: [gcm]
+
+- name: Download and install Git Credential Manager
+  when: gcm_needs_install
+  block:
+    - name: Get download URL for the specific version
+      uri:
+        url: "{{ gcm_github_api_url }}/tags/{{ gcm_resolved_version }}"
+        method: GET
+        return_content: true
+      register: gcm_release_info
+      tags: [gcm]
+
+    - name: Set download URL
+      set_fact:
+        gcm_download_url: "{{ item.browser_download_url }}"
+      loop: "{{ gcm_release_info.json.assets }}"
+      when: gcm_package_pattern in item.name
+      tags: [gcm]
+
+    - name: Fail if no suitable package found
+      fail:
+        msg: "No suitable .deb package found for architecture {{ gcm_arch }} in release {{ gcm_resolved_version }}"
+      when: gcm_download_url is not defined
+      tags: [gcm]
+
+    - name: Create temporary directory for download
+      tempfile:
+        state: directory
+        prefix: "gcm_install_"
+      register: gcm_temp_download_dir
+      tags: [gcm]
+
+    - name: Download GCM .deb package
+      get_url:
+        url: "{{ gcm_download_url }}"
+        dest: "{{ gcm_temp_download_dir.path }}/{{ gcm_package_pattern }}"
+        mode: '0644'
+        timeout: 300
+      tags: [gcm]
+
+    - name: Install GCM .deb package
+      apt:
+        deb: "{{ gcm_temp_download_dir.path }}/{{ gcm_package_pattern }}"
+        state: present
+      tags: [gcm]
+
+    - name: Clean up temporary directory
+      file:
+        path: "{{ gcm_temp_download_dir.path }}"
+        state: absent
+      tags: [gcm]
+
+- name: Configure Git to use Git Credential Manager
+  when: gcm_configure_git
+  block:
+    - name: Set Git credential helper to GCM
+      git_config:
+        name: credential.helper
+        value: manager
+        scope: "{{ gcm_git_config_scope }}"
+      tags: [gcm, config]
+
+    - name: Configure GCM credential store
+      git_config:
+        name: credential.credentialStore
+        value: "{{ gcm_config.credential_store }}"
+        scope: "{{ gcm_git_config_scope }}"
+      when: gcm_config.credential_store is defined
+      tags: [gcm, config]
+
+    - name: Configure GCM GUI prompt setting
+      git_config:
+        name: credential.guiPrompt
+        value: "{{ gcm_config.gui_prompt | string | lower }}"
+        scope: "{{ gcm_git_config_scope }}"
+      when: gcm_config.gui_prompt is defined
+      tags: [gcm, config]
+
+    - name: Configure GCM autodetect timeout
+      git_config:
+        name: credential.autoDetectTimeout
+        value: "{{ gcm_config.autodetect_timeout }}"
+        scope: "{{ gcm_git_config_scope }}"
+      when: gcm_config.autodetect_timeout is defined
+      tags: [gcm, config]
+
+    - name: Configure GCM to use system browser
+      git_config:
+        name: credential.useSystemBrowser
+        value: "{{ gcm_config.use_system_browser | string | lower }}"
+        scope: "{{ gcm_git_config_scope }}"
+      when: gcm_config.use_system_browser is defined
+      tags: [gcm, config]
+
+    - name: Configure HTTP proxy settings
+      git_config:
+        name: "credential.{{ item.key }}"
+        value: "{{ item.value }}"
+        scope: "{{ gcm_git_config_scope }}"
+      loop:
+        - { key: "httpProxy", value: "{{ gcm_config.http_proxy }}" }
+        - { key: "httpsProxy", value: "{{ gcm_config.https_proxy }}" }
+      when: item.value != ""
+      tags: [gcm, config]
+
+- name: Configure provider-specific settings
+  when: gcm_configure_providers
+  block:
+    - name: Configure GitHub provider
+      git_config:
+        name: "credential.https://github.com.helper"
+        value: "{{ gcm_providers.github.credential_helper if gcm_providers.github.credential_helper is defined else 'manager' }}"
+        scope: "{{ gcm_git_config_scope }}"
+      when: gcm_providers.github.enabled | default(false)
+      tags: [gcm, config, github]
+
+    - name: Configure GitLab providers
+      git_config:
+        name: "credential.https://{{ item }}.helper"
+        value: "manager"
+        scope: "{{ gcm_git_config_scope }}"
+      loop: "{{ gcm_providers.gitlab.url_patterns }}"
+      when: gcm_providers.gitlab.enabled | default(false)
+      tags: [gcm, config, gitlab]
+
+    - name: Configure Azure DevOps providers
+      git_config:
+        name: "credential.https://{{ item }}.helper"
+        value: "manager"
+        scope: "{{ gcm_git_config_scope }}"
+      loop: "{{ gcm_providers.azure_devops.url_patterns }}"
+      when: gcm_providers.azure_devops.enabled | default(false)
+      tags: [gcm, config, azure]
+
+    - name: Configure Bitbucket providers
+      git_config:
+        name: "credential.https://{{ item }}.helper"
+        value: "manager"
+        scope: "{{ gcm_git_config_scope }}"
+      loop: "{{ gcm_providers.bitbucket.url_patterns }}"
+      when: gcm_providers.bitbucket.enabled | default(false)
+      tags: [gcm, config, bitbucket]
+
+- name: Validate Git Credential Manager installation
+  when: gcm_validate_installation
+  block:
+    - name: Check GCM version after installation
+      command: git-credential-manager --version
+      register: gcm_installed_version
+      changed_when: false
+      tags: [gcm, verify]
+
+    - name: Verify Git configuration
+      command: git config --get credential.helper
+      register: gcm_git_helper_config
+      changed_when: false
+      failed_when: false
+      tags: [gcm, verify]
+
+    - name: Display installation verification
+      debug:
+        msg: |
+          ✅ Git Credential Manager installation verified!
+          
+          📍 Installation Details:
+          • GCM Version: {{ gcm_installed_version.stdout }}
+          • Git Helper: {{ gcm_git_helper_config.stdout | default('Not configured') }}
+          • Configuration Scope: {{ gcm_git_config_scope }}
+          • Credential Store: {{ gcm_config.credential_store }}
+          
+          🔐 Supported Providers:
+          • GitHub: {{ '✅' if gcm_providers.github.enabled else '❌' }}
+          • GitLab: {{ '✅' if gcm_providers.gitlab.enabled else '❌' }}  
+          • Azure DevOps: {{ '✅' if gcm_providers.azure_devops.enabled else '❌' }}
+          • Bitbucket: {{ '✅' if gcm_providers.bitbucket.enabled else '❌' }}
+          
+          🚀 Next Steps:
+          1. Clone a repository from a supported provider
+          2. GCM will automatically prompt for authentication
+          3. For GUI prompts, ensure you have a desktop environment
+          4. For browser flows, ensure you have a web browser installed
+          
+          💡 Useful Commands:
+          • git-credential-manager --version     (check GCM version)
+          • git config --list | grep credential (view Git credential config)
+          • git credential-manager configure    (reconfigure GCM)
+          • git credential-manager unconfigure  (remove GCM configuration)
+          
+          🔧 Troubleshooting:
+          • For issues, check: git config --get credential.helper
+          • Enable tracing: git config --global credential.trace true
+          • View credentials: git credential-manager list
+      tags: [gcm, verify]

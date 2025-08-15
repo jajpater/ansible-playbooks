@@ -1,0 +1,29 @@
+---
+- name: Install software-properties-common (required for add-apt-repository)
+  apt:
+    name: software-properties-common
+    state: present
+
+- name: Add Ulauncher PPA repository
+  apt_repository:
+    repo: "ppa:agornostal/ulauncher"
+    state: present
+  notify: update apt cache
+
+- name: Force update apt cache after repository changes
+  apt:
+    update_cache: yes
+  when: ansible_pkg_mgr == "apt"
+
+- name: Install Ulauncher
+  apt:
+    name: ulauncher
+    state: "{{ ulauncher_package_state | default('present') }}"
+  notify: verify ulauncher installation
+
+- name: Ensure Ulauncher is updated to latest version (when requested)
+  apt:
+    name: ulauncher
+    state: latest
+  when: ulauncher_ensure_latest | default(false) | bool
+  notify: verify ulauncher installation

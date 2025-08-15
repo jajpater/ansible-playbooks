@@ -1,0 +1,11 @@
+---
+# Simple Atuin installation playbook
+- name: Install Atuin
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  become: false
+  
+  roles:
+    - role: tools/atuin
+      tags: [atuin]

@@ -17,6 +17,9 @@
     - role: sys/regolith
       tags: [regolith]
 
+#    - role: sys/ulauncher
+#      tags: [ulauncher, launcher]
+
     - role: sys/duplicati
       tags: [duplicati]
 
@@ -31,6 +34,9 @@
 
     - role: sys/deskflow
       tags: [deskflow]
+
+    - role: tools/git-credential-manager
+      tags: [gcm, git-credential-manager, git, auth]
 
     - role: tools/neovim
       tags: [neovim, vim, editor]

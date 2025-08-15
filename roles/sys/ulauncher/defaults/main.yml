@@ -1,0 +1,6 @@
+---
+# Default package state for ulauncher
+ulauncher_package_state: present
+
+# Whether to ensure latest version is installed
+ulauncher_ensure_latest: false

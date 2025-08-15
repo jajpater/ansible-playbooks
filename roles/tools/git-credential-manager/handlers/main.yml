@@ -1,0 +1,21 @@
+---
+# Handlers for Git Credential Manager role
+
+- name: reload git config
+  command: git config --list
+  changed_when: false
+  failed_when: false
+  listen: "gcm config changed"
+
+- name: clear git credential cache
+  command: git credential-cache exit
+  changed_when: false
+  failed_when: false
+  listen: "gcm credentials changed"
+
+- name: test gcm authentication
+  debug:
+    msg: |
+      Git Credential Manager has been configured. 
+      Test authentication with: git clone https://github.com/user/repo.git
+  listen: "gcm installation complete"

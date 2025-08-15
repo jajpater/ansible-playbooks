@@ -1,0 +1,41 @@
+---
+# Simple Atuin installation using the official script
+- name: Check if Atuin is already installed
+  command: atuin --version
+  register: atuin_check
+  failed_when: false
+  changed_when: false
+  tags: [atuin]
+
+- name: Install Atuin using official script
+  shell: |
+    curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh
+  when: atuin_check.rc != 0
+  tags: [atuin, install]
+
+- name: Import existing shell history
+  shell: atuin import auto
+  register: atuin_import_result
+  changed_when: "'Imported' in atuin_import_result.stdout"
+  failed_when: false
+  when: atuin_check.rc != 0
+  tags: [atuin, import]
+
+- name: Display Atuin status
+  debug:
+    msg: |
+      ✅ Atuin installation complete!
+      
+      📍 Installation Details:
+      • Installed to: ~/.atuin/bin/atuin
+      • Config: ~/.config/atuin/
+      
+      🚀 Next Steps:
+      1. Restart your shell or run: source ~/.bashrc (or ~/.zshrc)
+      2. Use Ctrl+R to search your command history
+      3. Try: atuin search <term>
+      4. View stats: ~/.atuin/bin/atuin stats
+      
+      📝 For more information: https://docs.atuin.sh/
+  when: atuin_check.rc != 0
+  tags: [atuin]
