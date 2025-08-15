@@ -69,6 +69,17 @@ This automatically configures:
 - System Dependencies: `curl`, `gawk`, `python3`, `pip3`
 - Python Dependencies: `googletrans==4.0.0rc1`, `requests`, `beautifulsoup4`, `lxml`
 
+### vimv - Terminal File Rename Utility
+```yaml
+github_script_config: "vimv"
+```
+This automatically configures:
+- Repository: `thameera/vimv`
+- Script name: `vimv`
+- Direct URL: `https://raw.githubusercontent.com/thameera/vimv/master/vimv`
+- System Dependencies: `vim`
+- Post-install: Provides usage instructions and verification
+
 ## Usage Examples
 
 ### Basic Usage - Translate Shell

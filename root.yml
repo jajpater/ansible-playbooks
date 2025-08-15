@@ -49,3 +49,6 @@
 
     - role: tools/fvim
       tags: [fvim, neovim-gui]
+
+    - role: tools/calibre
+      tags: [calibre, ebooks, reader]

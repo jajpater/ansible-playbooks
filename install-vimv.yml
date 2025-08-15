@@ -1,0 +1,45 @@
+---
+# Ansible playbook to install vimv - a terminal-based file rename utility
+# vimv allows you to easily mass-rename files using Vim
+
+- name: Install vimv utility
+  hosts: localhost
+  connection: local
+  gather_facts: yes
+  become: no
+  
+  tasks:
+    - name: Install vimv using github_script role
+      include_role:
+        name: tools/github_script
+      vars:
+        github_script_config: "vimv"
+        
+    - name: Display usage information
+      debug:
+        msg: |
+          
+          ✅ vimv installation complete!
+          
+          📂 Location: ~/.local/bin/vimv
+          
+          📖 Usage:
+            1. Navigate to any directory: cd /path/to/files
+            2. Run: vimv [optional-file-pattern]
+            3. A Vim window opens with all filenames
+            4. Edit the names using Vim's editing features
+            5. Save and exit (:wq) to rename the files
+          
+          💡 Examples:
+            vimv                    # Rename all files in current directory
+            vimv *.mp4              # Rename only .mp4 files
+            vimv IMG_*.jpg          # Rename images matching pattern
+          
+          🚀 Features:
+            • Mass rename files using Vim's powerful editing
+            • Supports moving files to different directories
+            • Uses 'git mv' automatically in Git repositories
+            • Creates directories automatically if needed
+            • Uses your $EDITOR if set, otherwise defaults to Vim
+          
+          ⚠️  Note: Make sure ~/.local/bin is in your PATH to use vimv from anywhere.

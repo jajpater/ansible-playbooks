@@ -42,5 +42,14 @@ github_script_configs:
     post_install_commands:
       - "{{ github_script_install_dir }}/trans --version"
   
+  vimv:
+    repo: "thameera/vimv"
+    name: "vimv"
+    url: "https://raw.githubusercontent.com/thameera/vimv/master/vimv"
+    dependencies: ["vim"]
+    post_install_commands:
+      - "echo 'vimv installed successfully. Usage: cd to directory and run vimv [files...] to mass-rename files using Vim.'"
+      - "ls -la {{ github_script_install_dir }}/vimv"
+  
 # Active configuration (can be set to use predefined configs)
 github_script_config: ""                  # e.g. "translate-shell" to use predefined config
