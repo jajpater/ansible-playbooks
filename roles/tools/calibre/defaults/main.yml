@@ -1,0 +1,36 @@
+---
+# Default variables for calibre role
+
+# Version management
+calibre_version: "latest"  # Can be "latest" or specific version like "7.20.0"
+calibre_update_mode: "auto"  # auto, always, never, force
+
+# Installation paths
+calibre_install_dir: "/opt"  # Default installation directory (can be changed)
+calibre_download_dir: "/tmp"
+
+# Alternative installation options
+calibre_isolated_install: false  # Set to true for user-local install
+calibre_isolated_install_dir: "{{ ansible_env.HOME }}/calibre-bin"
+
+# Prerequisites packages to ensure are installed
+calibre_prerequisites:
+  - xdg-utils
+  - wget
+  - xz-utils
+  - python3
+
+# Download and installation settings
+calibre_download_timeout: 600  # 10 minutes timeout for download
+calibre_installer_url: "https://download.calibre-ebook.com/linux-installer.sh"
+calibre_no_check_certificate: false  # Set to true if having certificate issues
+
+# System requirements (for reference/validation)
+calibre_min_glibc: "2.34"
+calibre_min_libstdcpp: "6.0.30"
+
+# Verification
+calibre_verify_installation: true
+
+# Optional X11/Wayland settings
+calibre_qt_platform: ""  # Set to "xcb" if having Wayland issues

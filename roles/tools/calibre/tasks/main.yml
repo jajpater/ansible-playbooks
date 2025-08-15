@@ -1,0 +1,169 @@
+---
+# Main tasks for calibre role
+
+- name: Install prerequisite packages
+  package:
+    name: "{{ calibre_prerequisites }}"
+    state: present
+  become: true
+  when: not calibre_isolated_install
+
+- name: Check if calibre is already installed (system install)
+  stat:
+    path: "{{ calibre_install_dir }}/calibre/calibre"
+  register: calibre_current_binary_system
+  when: not calibre_isolated_install
+
+- name: Check if calibre is already installed (isolated install)
+  stat:
+    path: "{{ calibre_isolated_install_dir }}/calibre"
+  register: calibre_current_binary_isolated
+  when: calibre_isolated_install
+
+- name: Set calibre binary path
+  set_fact:
+    calibre_binary_path: >-
+      {% if calibre_isolated_install -%}
+      {{ calibre_isolated_install_dir }}/calibre
+      {%- else -%}
+      {{ calibre_install_dir }}/calibre/calibre
+      {%- endif %}
+
+- name: Get currently installed version
+  shell: "{{ calibre_binary_path }} --version | head -1 | awk '{print $3}'"
+  register: calibre_current_version
+  when: >
+    (not calibre_isolated_install and calibre_current_binary_system.stat.exists) or
+    (calibre_isolated_install and calibre_current_binary_isolated.stat.exists)
+  changed_when: false
+  failed_when: false
+
+- name: Display current installation status
+  debug:
+    msg: |
+      Installation mode: {{ 'Isolated' if calibre_isolated_install else 'System' }}
+      Installation path: {{ calibre_binary_path }}
+      Current version: {{ calibre_current_version.stdout | default('Not installed') }}
+      Target version: {{ calibre_version }}
+      Update mode: {{ calibre_update_mode }}
+
+- name: Determine if update is needed
+  set_fact:
+    calibre_needs_update: >-
+      {{
+        calibre_update_mode == "always" or
+        calibre_update_mode == "force" or
+        (not calibre_isolated_install and not calibre_current_binary_system.stat.exists) or
+        (calibre_isolated_install and not calibre_current_binary_isolated.stat.exists) or
+        (calibre_update_mode == "auto" and calibre_version != "latest")
+      }}
+
+- name: Skip installation if not needed
+  debug:
+    msg: "calibre {{ calibre_current_version.stdout | default('unknown') }} is already installed and update not required"
+  when: not calibre_needs_update
+
+- name: Proceed with installation/update
+  block:
+    - name: Create temporary script directory
+      file:
+        path: "{{ calibre_download_dir }}/calibre-install"
+        state: directory
+        mode: '0755'
+
+    - name: Download calibre installer script
+      get_url:
+        url: "{{ calibre_installer_url }}"
+        dest: "{{ calibre_download_dir }}/calibre-install/installer.sh"
+        mode: '0755'
+        timeout: "{{ calibre_download_timeout }}"
+        validate_certs: "{{ not calibre_no_check_certificate }}"
+
+    - name: Install calibre (system install)
+      shell: >
+        {% if calibre_version != "latest" -%}
+        sudo sh {{ calibre_download_dir }}/calibre-install/installer.sh install_dir={{ calibre_install_dir }} version={{ calibre_version }}
+        {%- else -%}
+        sudo sh {{ calibre_download_dir }}/calibre-install/installer.sh install_dir={{ calibre_install_dir }}
+        {%- endif %}
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+      when: not calibre_isolated_install
+      register: calibre_install_result
+      notify: calibre installed
+
+    - name: Install calibre (isolated install)
+      shell: >
+        {% if calibre_version != "latest" -%}
+        sh {{ calibre_download_dir }}/calibre-install/installer.sh install_dir={{ calibre_isolated_install_dir }} isolated=y version={{ calibre_version }}
+        {%- else -%}
+        sh {{ calibre_download_dir }}/calibre-install/installer.sh install_dir={{ calibre_isolated_install_dir }} isolated=y
+        {%- endif %}
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+      when: calibre_isolated_install
+      register: calibre_install_result
+      notify: calibre installed
+
+    - name: Clean up installer script
+      file:
+        path: "{{ calibre_download_dir }}/calibre-install"
+        state: absent
+
+  when: calibre_needs_update
+
+- name: Verify calibre installation
+  block:
+    - name: Check if calibre binary exists after installation
+      stat:
+        path: "{{ calibre_binary_path }}"
+      register: calibre_verify_binary
+
+    - name: Get installed version
+      shell: "{{ calibre_binary_path }} --version | head -1"
+      register: calibre_verify_version
+      changed_when: false
+      when: calibre_verify_binary.stat.exists
+
+    - name: Display installation verification
+      debug:
+        msg: |
+          calibre installation verified:
+          Binary path: {{ calibre_binary_path }}
+          Version: {{ calibre_verify_version.stdout | default('Could not determine') }}
+          Executable: {{ calibre_verify_binary.stat.exists | default(false) }}
+          Installation mode: {{ 'Isolated' if calibre_isolated_install else 'System' }}
+
+    - name: Fail if verification failed
+      fail:
+        msg: "calibre installation verification failed - binary not found at {{ calibre_binary_path }}"
+      when: not calibre_verify_binary.stat.exists
+
+  when: calibre_verify_installation
+
+- name: Create desktop integration (system install)
+  block:
+    - name: Check if desktop integration exists
+      shell: which calibre
+      register: calibre_in_path
+      changed_when: false
+      failed_when: false
+
+    - name: Add calibre to PATH message
+      debug:
+        msg: |
+          Note: For system installs, calibre binaries are typically added to /opt/calibre
+          If calibre is not in your PATH, you may need to create symlinks or add to PATH:
+          sudo ln -s {{ calibre_install_dir }}/calibre/calibre /usr/local/bin/calibre
+          sudo ln -s {{ calibre_install_dir }}/calibre/ebook-convert /usr/local/bin/ebook-convert
+      when: not calibre_isolated_install and calibre_in_path.rc != 0
+
+  when: not calibre_isolated_install
+
+- name: Display isolated install usage instructions
+  debug:
+    msg: |
+      calibre installed in isolated mode at: {{ calibre_isolated_install_dir }}
+      To use calibre, run: {{ calibre_isolated_install_dir }}/calibre
+      You may want to add {{ calibre_isolated_install_dir }} to your PATH
+  when: calibre_isolated_install

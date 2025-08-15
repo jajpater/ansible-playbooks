@@ -1,0 +1,21 @@
+---
+# Handlers for calibre role
+
+- name: calibre installed
+  debug:
+    msg: |
+      Calibre has been successfully installed/updated!
+      
+      Installation completed. You can now use Calibre for e-book management.
+      
+      Common commands:
+      - calibre: Launch the main GUI application
+      - ebook-convert: Convert between e-book formats
+      - calibredb: Command-line library management
+      
+      For GUI usage, ensure you have a desktop environment with X11 support.
+      If using Wayland and encountering issues, set QT_QPA_PLATFORM=xcb before running calibre.
+
+- name: calibre updated
+  debug:
+    msg: "Calibre has been updated to the latest version"

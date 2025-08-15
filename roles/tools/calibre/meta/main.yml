@@ -1,0 +1,45 @@
+---
+# Meta information for calibre role
+
+galaxy_info:
+  author: "System Administrator"
+  description: "Install and manage Calibre E-book management software using the official binary installer"
+  company: ""
+  license: "MIT"
+  min_ansible_version: "2.9"
+  
+  platforms:
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+        - noble
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+    - name: Fedora
+      versions:
+        - "38"
+        - "39"
+        - "40"
+    - name: CentOS
+      versions:
+        - "8"
+        - "9"
+    - name: RedHat
+      versions:
+        - "8"
+        - "9"
+
+  galaxy_tags:
+    - ebook
+    - calibre
+    - reader
+    - management
+    - gui
+    - tools
+    - desktop
+    - publishing
+
+dependencies: []
