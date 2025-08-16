@@ -76,6 +76,17 @@
         github_script_config: "vimv"
       tags: [github-script, vimv, file-rename]
 
+    - role: tools/spacemacs
+      tags: [spacemacs, emacs, editor]
+
+    - role: tools/scantailor
+      tags: [scantailor, scanner, documents]
+      when: scantailor_install_appimage
+
+    - role: infra/shell-aliases
+      tags: [shell-aliases, aliases]
+      when: scantailor_auto_aliases
+
 #    - role: tools/ebooks
 #      tags: [ebooks, calibre-plugins]
 

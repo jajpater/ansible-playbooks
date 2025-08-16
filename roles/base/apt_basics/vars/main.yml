@@ -22,6 +22,7 @@ apt_packages:
   - jq
   - liblept5
   - libxml2
+  - libtool
   - make
   - pandoc
   - pandoc-data

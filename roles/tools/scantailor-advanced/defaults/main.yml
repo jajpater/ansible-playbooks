@@ -1,0 +1,25 @@
+---
+# ScanTailor IPEP variant to install
+scantailor_ipep_variant: "advanced"   # advanced | experimental | deviant | universal
+
+# Repository configuration
+scantailor_ipep_repo_base: "https://gitea.com/ImageProcessing-ElectronicPublications"
+scantailor_ipep_version: "master"
+
+# Build configuration
+scantailor_build_type: "Release"
+scantailor_prefix: "/usr/local"
+
+# Source and build directories
+scantailor_src_root: "/usr/local/src"
+scantailor_src_dir: "{{ scantailor_src_root }}/scantailor-{{ scantailor_ipep_variant }}"
+scantailor_build_dir: "{{ scantailor_src_dir }}/build"
+
+# Additional packages (can be overridden per OS/version)
+scantailor_extra_packages: []
+
+# Build parallelization (auto-detect CPU cores)
+scantailor_build_jobs: "{{ ansible_facts.processor_vcpus | default(2) }}"
+
+# Force rebuild even if already installed
+scantailor_force_rebuild: false

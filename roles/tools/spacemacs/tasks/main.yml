@@ -1,0 +1,53 @@
+---
+- name: Check if Emacs is installed
+  command: which emacs
+  register: emacs_check
+  failed_when: false
+  changed_when: false
+
+- name: Install Emacs if not present
+  package:
+    name: emacs
+    state: present
+  become: true
+  when: emacs_check.rc != 0
+
+- name: Check if .emacs.d directory exists
+  stat:
+    path: "{{ ansible_env.HOME }}/.emacs.d"
+  register: emacs_dir
+
+- name: Backup existing .emacs.d if it exists
+  command: mv "{{ ansible_env.HOME }}/.emacs.d" "{{ ansible_env.HOME }}/.emacs.d.backup-{{ ansible_date_time.epoch }}"
+  when: emacs_dir.stat.exists and emacs_dir.stat.isdir
+
+- name: Clone Spacemacs repository
+  git:
+    repo: "{{ spacemacs_repo_url }}"
+    dest: "{{ ansible_env.HOME }}/.emacs.d"
+    version: "{{ spacemacs_branch }}"
+    force: yes
+
+- name: Set correct permissions for .emacs.d
+  file:
+    path: "{{ ansible_env.HOME }}/.emacs.d"
+    owner: "{{ ansible_env.USER }}"
+    group: "{{ ansible_env.USER }}"
+    recurse: yes
+
+- name: Create .spacemacs configuration file if it doesn't exist
+  template:
+    src: spacemacs.j2
+    dest: "{{ ansible_env.HOME }}/.spacemacs"
+    backup: yes
+  when: not ansible_check_mode
+
+- name: Display installation completion message
+  debug:
+    msg: |
+      Spacemacs has been installed successfully!
+      Location: {{ ansible_env.HOME }}/.emacs.d
+      Configuration: {{ ansible_env.HOME }}/.spacemacs
+      
+      To start Spacemacs, run: emacs
+      On first startup, Spacemacs will install packages automatically.

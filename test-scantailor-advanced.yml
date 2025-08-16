@@ -1,0 +1,12 @@
+---
+- name: Test ScanTailor Advanced installation
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  become: true
+
+  roles:
+    - role: tools/scantailor-advanced
+      vars:
+        scantailor_ipep_variant: "advanced"
+      tags: [scantailor-advanced, scanner, build]

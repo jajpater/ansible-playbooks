@@ -1,0 +1,97 @@
+---
+- name: Ensure .local/bin directory exists
+  file:
+    path: "{{ scantailor_install_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Ensure .local/share/applications directory exists
+  file:
+    path: "{{ scantailor_desktop_dir }}"
+    state: directory
+    mode: "0755"
+  when: scantailor_create_desktop_entry
+
+- name: Ensure .local/share/icons directory exists
+  file:
+    path: "{{ scantailor_icon_dir }}"
+    state: directory
+    mode: "0755"
+  when: scantailor_create_desktop_entry
+
+- name: Check if ScanTailor AppImage already exists
+  stat:
+    path: "{{ scantailor_install_dir }}/{{ scantailor_appimage_name }}"
+  register: scantailor_appimage_stat
+
+- name: Download ScanTailor AppImage
+  get_url:
+    url: "{{ scantailor_appimage_url }}"
+    dest: "{{ scantailor_install_dir }}/{{ scantailor_appimage_name }}"
+    mode: "0755"
+    timeout: 30
+  when: not scantailor_appimage_stat.stat.exists
+  register: scantailor_download
+
+- name: Create symlink for easy access
+  file:
+    src: "{{ scantailor_install_dir }}/{{ scantailor_appimage_name }}"
+    dest: "{{ scantailor_install_dir }}/{{ scantailor_binary_name }}"
+    state: link
+    force: yes
+  when: scantailor_create_symlink and (not ansible_check_mode or scantailor_download.changed)
+
+- name: Extract icon from AppImage
+  shell: |
+    cd {{ scantailor_icon_dir }}
+    {{ scantailor_install_dir }}/{{ scantailor_appimage_name }} --appimage-extract-and-run --appimage-mount | head -1 | xargs -I {} find {} -name "*.png" -o -name "*.svg" | head -1 | xargs -I {} cp {} scantailor.png
+  args:
+    creates: "{{ scantailor_icon_dir }}/scantailor.png"
+  when: scantailor_create_desktop_entry
+  ignore_errors: true
+
+- name: Create desktop entry
+  copy:
+    content: |
+      [Desktop Entry]
+      Name=ScanTailor
+      Comment=Interactive post-processing tool for scanned pages
+      Exec={{ scantailor_install_dir }}/{{ scantailor_binary_name }} %F
+      Icon={{ scantailor_icon_dir }}/scantailor.png
+      Terminal=false
+      Type=Application
+      Categories=Graphics;Photography;
+      MimeType=image/jpeg;image/png;image/tiff;image/bmp;
+      StartupNotify=true
+    dest: "{{ scantailor_desktop_dir }}/scantailor.desktop"
+    mode: "0644"
+  when: scantailor_create_desktop_entry
+
+- name: Update desktop database
+  command: update-desktop-database {{ scantailor_desktop_dir }}
+  when: scantailor_create_desktop_entry
+  changed_when: false
+  failed_when: false
+
+- name: Display installation success message
+  debug:
+    msg: |
+      ScanTailor AppImage has been installed successfully!
+      
+      Installation details:
+      - AppImage location: {{ scantailor_install_dir }}/{{ scantailor_appimage_name }}
+      - Binary symlink: {{ scantailor_install_dir }}/{{ scantailor_binary_name }}
+      {% if scantailor_create_desktop_entry %}
+      - Desktop entry: {{ scantailor_desktop_dir }}/scantailor.desktop
+      {% endif %}
+      
+      Usage:
+      - Command line: {{ scantailor_binary_name }} (if ~/.local/bin is in PATH)
+      - Direct: {{ scantailor_install_dir }}/{{ scantailor_binary_name }}
+      {% if scantailor_create_desktop_entry %}
+      - Desktop: Look for "ScanTailor" in your application menu
+      {% endif %}
+
+- name: Include version chooser tasks
+  include_tasks: version-chooser.yml
+  when: scantailor_create_chooser

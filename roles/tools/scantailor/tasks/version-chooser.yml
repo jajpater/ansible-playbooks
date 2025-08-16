@@ -1,0 +1,85 @@
+---
+# Optional task file to create a version chooser script
+- name: Create ScanTailor version chooser script
+  copy:
+    content: |
+      #!/bin/bash
+      # ScanTailor Version Chooser
+      # This script helps you choose between different ScanTailor installations
+      
+      APPIMAGE_PATH="$HOME/.local/bin/scantailor"
+      ADVANCED_PATH="/usr/local/bin/scantailor-advanced"
+      EXPERIMENTAL_PATH="/usr/local/bin/scantailor-experimental"
+      DEVIANT_PATH="/usr/local/bin/scantailor-deviant"
+      UNIVERSAL_PATH="/usr/local/bin/scantailor-universal"
+      
+      echo "Available ScanTailor versions:"
+      echo
+      
+      count=0
+      declare -a options
+      declare -a paths
+      
+      if [[ -x "$APPIMAGE_PATH" ]]; then
+          count=$((count + 1))
+          options[$count]="AppImage (user-level)"
+          paths[$count]="$APPIMAGE_PATH"
+          echo "$count) AppImage (user-level) - $APPIMAGE_PATH"
+      fi
+      
+      if [[ -x "$ADVANCED_PATH" ]]; then
+          count=$((count + 1))
+          options[$count]="Advanced (compiled)"
+          paths[$count]="$ADVANCED_PATH"
+          echo "$count) Advanced (compiled) - $ADVANCED_PATH"
+      fi
+      
+      if [[ -x "$EXPERIMENTAL_PATH" ]]; then
+          count=$((count + 1))
+          options[$count]="Experimental (compiled)"
+          paths[$count]="$EXPERIMENTAL_PATH"
+          echo "$count) Experimental (compiled) - $EXPERIMENTAL_PATH"
+      fi
+      
+      if [[ -x "$DEVIANT_PATH" ]]; then
+          count=$((count + 1))
+          options[$count]="Deviant (compiled)"
+          paths[$count]="$DEVIANT_PATH"
+          echo "$count) Deviant (compiled) - $DEVIANT_PATH"
+      fi
+      
+      if [[ -x "$UNIVERSAL_PATH" ]]; then
+          count=$((count + 1))
+          options[$count]="Universal (compiled)"
+          paths[$count]="$UNIVERSAL_PATH"
+          echo "$count) Universal (compiled) - $UNIVERSAL_PATH"
+      fi
+      
+      if [[ $count -eq 0 ]]; then
+          echo "No ScanTailor installations found!"
+          echo
+          echo "Install options:"
+          echo "- AppImage (user): ansible-playbook user.yml --tags scantailor"
+          echo "- Advanced (system): sudo ansible-playbook root.yml --tags scantailor-advanced"
+          exit 1
+      fi
+      
+      echo
+      if [[ $count -eq 1 ]]; then
+          echo "Only one version found. Starting ${options[1]}..."
+          exec "${paths[1]}" "$@"
+      fi
+      
+      echo "Which version would you like to use?"
+      read -p "Enter choice (1-$count): " choice
+      
+      if [[ "$choice" =~ ^[0-9]+$ ]] && [[ "$choice" -ge 1 ]] && [[ "$choice" -le $count ]]; then
+          echo "Starting ${options[$choice]}..."
+          exec "${paths[$choice]}" "$@"
+      else
+          echo "Invalid choice. Exiting."
+          exit 1
+      fi
+    dest: "{{ ansible_env.HOME }}/.local/bin/scantailor-chooser"
+    mode: "0755"
+  when: scantailor_create_chooser is defined and scantailor_create_chooser

@@ -1,7 +1,8 @@
 # Duplicati release channel from GitHub releases
 # Available channels: stable, beta, canary, experimental  
 # Note: stable has higher version numbers than beta (e.g., 2.1.0.5 vs 2.1.0.3)
-duplicati_channel: "stable"
+# duplicati_channel: "stable"
+duplicati_channel: "canary"
 
 # Architecture and package type to download
 # Common values: linux-x64-gui, linux-arm64-gui, linux-x64-cli, linux-arm64-cli

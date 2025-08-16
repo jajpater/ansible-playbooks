@@ -1,0 +1,17 @@
+---
+# ScanTailor AppImage installation settings
+scantailor_appimage_url: "https://github.com/probonopd/scantailor/releases/download/continuous/ScanTailor-d3f8580-x86_64.AppImage"
+scantailor_appimage_name: "ScanTailor-d3f8580-x86_64.AppImage"
+scantailor_binary_name: "scantailor"
+
+# XDG compliant installation paths
+scantailor_install_dir: "{{ ansible_env.HOME }}/.local/bin"
+scantailor_desktop_dir: "{{ ansible_env.HOME }}/.local/share/applications"
+scantailor_icon_dir: "{{ ansible_env.HOME }}/.local/share/icons"
+
+# Desktop integration
+scantailor_create_desktop_entry: true
+scantailor_create_symlink: true
+
+# Create version chooser script (useful when multiple versions are installed)
+scantailor_create_chooser: false

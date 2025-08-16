@@ -1,0 +1,25 @@
+---
+galaxy_info:
+  author: ansible-playbooks
+  description: Install ScanTailor AppImage for document scanning post-processing
+  license: MIT
+  min_ansible_version: 2.9
+  
+  platforms:
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+
+  galaxy_tags:
+    - scanner
+    - documents
+    - imaging
+    - graphics
+    - appimage
+
+dependencies: []

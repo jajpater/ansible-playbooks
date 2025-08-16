@@ -1,0 +1,7 @@
+---
+# Shell aliases configuration
+shell_aliases_file: "{{ ansible_env.HOME }}/.config/ansible/shell_aliases"
+shell_aliases_backup: true
+
+# ScanTailor aliases (auto-detected based on installed versions)
+scantailor_aliases_enabled: true

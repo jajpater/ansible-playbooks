@@ -9,3 +9,14 @@ github_token: >-
         true
       )
   }}
+
+# ScanTailor installation options
+# Set to true to install that version, false to skip
+scantailor_install_appimage: true      # User-level AppImage version
+scantailor_install_compiled: true      # System-level compiled version
+
+# Compiled version variant (when scantailor_install_compiled is true)
+scantailor_compiled_variant: "advanced"  # advanced | experimental | deviant | universal
+
+# Auto-create shell aliases when both versions are installed
+scantailor_auto_aliases: true

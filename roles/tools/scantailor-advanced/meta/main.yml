@@ -1,0 +1,27 @@
+---
+galaxy_info:
+  role_name: scantailor-advanced
+  author: ansible-playbooks
+  description: Build and install ScanTailor Advanced (IPEP variants) from source
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+        - noble
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+
+  galaxy_tags:
+    - scantailor
+    - scanner
+    - documents
+    - imaging
+    - build
+    - compile
+
+dependencies: []

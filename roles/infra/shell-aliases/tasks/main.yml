@@ -1,0 +1,117 @@
+---
+- name: Ensure .config/ansible directory exists
+  file:
+    path: "{{ ansible_env.HOME }}/.config/ansible"
+    state: directory
+    mode: "0755"
+
+- name: Check if AppImage ScanTailor exists
+  stat:
+    path: "{{ ansible_env.HOME }}/.local/bin/scantailor"
+  register: scantailor_appimage_check
+
+- name: Check if compiled ScanTailor exists
+  stat:
+    path: "/usr/local/bin/scantailor-{{ scantailor_compiled_variant }}"
+  register: scantailor_compiled_check
+
+- name: Create ScanTailor aliases when both versions are installed
+  blockinfile:
+    path: "{{ shell_aliases_file }}"
+    marker: "# {mark} ANSIBLE MANAGED - ScanTailor aliases"
+    create: yes
+    mode: "0644"
+    backup: "{{ shell_aliases_backup }}"
+    block: |
+      # ScanTailor version aliases
+      alias scantailor-app="{{ ansible_env.HOME }}/.local/bin/scantailor"
+      alias scantailor-{{ scantailor_compiled_variant }}="/usr/local/bin/scantailor-{{ scantailor_compiled_variant }}"
+      alias st-app="{{ ansible_env.HOME }}/.local/bin/scantailor"
+      alias st-{{ scantailor_compiled_variant }}="/usr/local/bin/scantailor-{{ scantailor_compiled_variant }}"
+      
+      # ScanTailor chooser function
+      scantailor() {
+          if [[ $# -eq 0 ]]; then
+              echo "ScanTailor versions available:"
+              echo "  scantailor-app     - AppImage version (user-level)"
+              echo "  scantailor-{{ scantailor_compiled_variant }}  - {{ scantailor_compiled_variant | title }} version (compiled)"
+              echo "  st-app             - Short alias for AppImage"
+              echo "  st-{{ scantailor_compiled_variant }}           - Short alias for {{ scantailor_compiled_variant | title }}"
+              echo ""
+              echo "Usage: scantailor [app|{{ scantailor_compiled_variant }}] [files...]"
+              return 0
+          fi
+          
+          case "$1" in
+              app|appimage)
+                  shift
+                  {{ ansible_env.HOME }}/.local/bin/scantailor "$@"
+                  ;;
+              {{ scantailor_compiled_variant }}|adv|advanced)
+                  shift
+                  /usr/local/bin/scantailor-{{ scantailor_compiled_variant }} "$@"
+                  ;;
+              *)
+                  echo "Which ScanTailor version?"
+                  echo "1) AppImage (user-level)"
+                  echo "2) {{ scantailor_compiled_variant | title }} (compiled)"
+                  read -p "Choice (1/2): " choice
+                  case $choice in
+                      1) {{ ansible_env.HOME }}/.local/bin/scantailor "$@" ;;
+                      2) /usr/local/bin/scantailor-{{ scantailor_compiled_variant }} "$@" ;;
+                      *) echo "Invalid choice. Use 'scantailor app' or 'scantailor {{ scantailor_compiled_variant }}' directly." ;;
+                  esac
+                  ;;
+          esac
+      }
+  when: 
+    - scantailor_aliases_enabled
+    - scantailor_appimage_check.stat.exists
+    - scantailor_compiled_check.stat.exists
+    - scantailor_auto_aliases
+
+- name: Add aliases to shell RC files
+  blockinfile:
+    path: "{{ item }}"
+    marker: "# {mark} ANSIBLE MANAGED - Load custom aliases"
+    create: no
+    backup: "{{ shell_aliases_backup }}"
+    block: |
+      # Load custom aliases if file exists
+      if [[ -f "{{ shell_aliases_file }}" ]]; then
+          source "{{ shell_aliases_file }}"
+      fi
+  loop:
+    - "{{ ansible_env.HOME }}/.bashrc"
+    - "{{ ansible_env.HOME }}/.zshrc"
+  when: 
+    - scantailor_aliases_enabled
+    - scantailor_appimage_check.stat.exists
+    - scantailor_compiled_check.stat.exists
+    - scantailor_auto_aliases
+  ignore_errors: true
+
+- name: Display aliases information
+  debug:
+    msg: |
+      ScanTailor shell aliases have been created!
+      
+      Available aliases:
+      - scantailor-app           : AppImage version
+      - scantailor-{{ scantailor_compiled_variant }}      : {{ scantailor_compiled_variant | title }} compiled version
+      - st-app                   : Short alias for AppImage
+      - st-{{ scantailor_compiled_variant }}             : Short alias for {{ scantailor_compiled_variant | title }}
+      
+      Smart function:
+      - scantailor               : Interactive chooser
+      - scantailor app [files]   : Use AppImage version
+      - scantailor {{ scantailor_compiled_variant }} [files] : Use {{ scantailor_compiled_variant | title }} version
+      
+      Aliases file: {{ shell_aliases_file }}
+      
+      Restart your shell or run: source {{ shell_aliases_file }}
+  when: 
+    - scantailor_aliases_enabled
+    - scantailor_appimage_check.stat.exists
+    - scantailor_compiled_check.stat.exists
+    - scantailor_auto_aliases

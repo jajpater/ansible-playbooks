@@ -1,0 +1,9 @@
+---
+# Spacemacs repository URL
+spacemacs_repo_url: "https://github.com/syl20bnr/spacemacs"
+
+# Spacemacs branch to install
+spacemacs_branch: "develop"
+
+# Spacemacs configuration template
+spacemacs_config_template: "spacemacs.j2"

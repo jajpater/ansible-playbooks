@@ -1,0 +1,145 @@
+---
+- name: Ensure apt cache is up to date (Debian/Ubuntu)
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  when: ansible_facts.os_family == "Debian"
+  become: true
+
+- name: Compute repo URL for selected variant
+  ansible.builtin.set_fact:
+    scantailor_repo_url: "{{ scantailor_ipep_repo_base }}/scantailor-{{ scantailor_ipep_variant }}.git"
+
+- name: Install build and runtime dependencies
+  ansible.builtin.package:
+    name:
+      - git
+      - build-essential
+      - cmake
+      - pkg-config
+      - qtbase5-dev
+      - qttools5-dev
+      - qttools5-dev-tools
+      - libqt5svg5-dev
+      - libqt5opengl5-dev
+      - libjpeg-dev
+      - libpng-dev
+      - libtiff-dev
+      - zlib1g-dev
+      - libboost-all-dev
+      - libeigen3-dev
+    state: present
+  become: true
+
+- name: Install additional packages if specified
+  ansible.builtin.package:
+    name: "{{ scantailor_extra_packages }}"
+    state: present
+  when: scantailor_extra_packages is defined and scantailor_extra_packages | length > 0
+  become: true
+
+- name: Determine binary name
+  ansible.builtin.set_fact:
+    scantailor_bin_name: >-
+      {{ 'scantailor-advanced' if scantailor_ipep_variant == 'advanced' else
+         ('scantailor-experimental' if scantailor_ipep_variant == 'experimental' else
+          ('scantailor-deviant' if scantailor_ipep_variant == 'deviant' else
+           'scantailor-universal')) }}
+
+- name: Check if ScanTailor is already installed
+  ansible.builtin.stat:
+    path: "{{ scantailor_prefix }}/bin/{{ scantailor_bin_name }}"
+  register: scantailor_existing
+
+- name: Create source root directory
+  ansible.builtin.file:
+    path: "{{ scantailor_src_root }}"
+    state: directory
+    mode: "0755"
+  become: true
+  when: not scantailor_existing.stat.exists or scantailor_force_rebuild
+
+- name: Remove existing source directory if force rebuild
+  ansible.builtin.file:
+    path: "{{ scantailor_src_dir }}"
+    state: absent
+  become: true
+  when: scantailor_force_rebuild and scantailor_existing.stat.exists
+
+- name: Clone IPEP ScanTailor variant
+  ansible.builtin.git:
+    repo: "{{ scantailor_repo_url }}"
+    dest: "{{ scantailor_src_dir }}"
+    version: "{{ scantailor_ipep_version }}"
+    depth: 1
+    update: yes
+    force: yes
+  become: true
+  register: scantailor_git
+  when: not scantailor_existing.stat.exists or scantailor_force_rebuild
+
+- name: Create build directory
+  ansible.builtin.file:
+    path: "{{ scantailor_build_dir }}"
+    state: directory
+    mode: "0755"
+  become: true
+  when: scantailor_git.changed or scantailor_force_rebuild or not scantailor_existing.stat.exists
+
+- name: Configure with CMake
+  ansible.builtin.command:
+    cmd: >
+      cmake
+      -DCMAKE_BUILD_TYPE={{ scantailor_build_type }}
+      -DCMAKE_INSTALL_PREFIX={{ scantailor_prefix }}
+      ..
+    chdir: "{{ scantailor_build_dir }}"
+  become: true
+  register: scantailor_cmake
+  changed_when: "'Configuring done' in scantailor_cmake.stdout or scantailor_cmake.rc == 0"
+  when: scantailor_git.changed or scantailor_force_rebuild or not scantailor_existing.stat.exists
+
+- name: Build ScanTailor (using {{ scantailor_build_jobs }} cores)
+  ansible.builtin.command:
+    cmd: make -j {{ scantailor_build_jobs }}
+    chdir: "{{ scantailor_build_dir }}"
+  become: true
+  register: scantailor_make
+  changed_when: scantailor_make.rc == 0
+  when: scantailor_cmake.changed or scantailor_force_rebuild or not scantailor_existing.stat.exists
+
+- name: Install ScanTailor
+  ansible.builtin.command:
+    cmd: make install
+    chdir: "{{ scantailor_build_dir }}"
+  become: true
+  register: scantailor_install
+  changed_when: scantailor_install.rc == 0
+  when: scantailor_make.changed or scantailor_force_rebuild or not scantailor_existing.stat.exists
+  notify: Update ldconfig
+
+- name: Verify binary installation
+  ansible.builtin.stat:
+    path: "{{ scantailor_prefix }}/bin/{{ scantailor_bin_name }}"
+  register: scantailor_final_check
+
+- name: Fail if binary missing after installation
+  ansible.builtin.fail:
+    msg: "Binary {{ scantailor_prefix }}/bin/{{ scantailor_bin_name }} not found after build."
+  when: not scantailor_final_check.stat.exists
+
+- name: Display installation success message
+  ansible.builtin.debug:
+    msg: |
+      ScanTailor {{ scantailor_ipep_variant }} has been installed successfully!
+      
+      Installation details:
+      - Variant: {{ scantailor_ipep_variant }}
+      - Binary: {{ scantailor_prefix }}/bin/{{ scantailor_bin_name }}
+      - Version: {{ scantailor_ipep_version }}
+      - Build type: {{ scantailor_build_type }}
+      
+      Usage:
+      - Command line: {{ scantailor_bin_name }}
+      - Full path: {{ scantailor_prefix }}/bin/{{ scantailor_bin_name }}
+  when: scantailor_final_check.stat.exists
