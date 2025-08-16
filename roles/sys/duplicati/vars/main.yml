@@ -1,5 +1,12 @@
-# Channel on updates.duplicati.com: beta (default), canary, experimental
+# Duplicati release channel from GitHub releases
+# Available channels: stable, beta, canary, experimental  
+# Note: stable has higher version numbers than beta (e.g., 2.1.0.5 vs 2.1.0.3)
 duplicati_channel: "stable"
 
-# Architecture tag to download; common: linux-x64-gui, linux-arm64-gui
+# Architecture and package type to download
+# Common values: linux-x64-gui, linux-arm64-gui, linux-x64-cli, linux-arm64-cli
+# GUI version includes the web interface, CLI is command-line only
 duplicati_arch: "linux-x64-gui"
+
+# GitHub repository for releases
+duplicati_github_repo: "duplicati/duplicati"

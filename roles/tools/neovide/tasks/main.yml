@@ -258,15 +258,31 @@
   command: "{{ neovide_install_dir }}/bin/neovide --version"
   register: neovide_verify_result
   changed_when: false
+  failed_when: 
+    - neovide_verify_result.rc != 0
+    - "'XOpenDisplayFailed' not in neovide_verify_result.stderr"
+    - "'Authorization required' not in neovide_verify_result.stderr"
   tags: [neovide, verify]
 
 - name: Display installation verification
   debug:
     msg: |
+      {% if neovide_verify_result.rc == 0 %}
       ✅ Neovide installation verified!
       
       📍 Installation Details:
       • Version: {{ neovide_verify_result.stdout.split(' ')[1] if neovide_verify_result.stdout.split(' ')|length > 1 else 'Unknown' }}
+      {% elif 'XOpenDisplayFailed' in neovide_verify_result.stderr or 'Authorization required' in neovide_verify_result.stderr %}
+      ✅ Neovide installation completed! (GUI verification skipped in headless environment)
+      
+      📍 Installation Details:
+      • Status: Binary installed and executable
+      {% else %}
+      ✅ Neovide installation completed!
+      
+      📍 Installation Details:
+      • Status: Installation completed
+      {% endif %}
       • Binary: {{ neovide_install_dir }}/bin/neovide
       • Method: {{ neovide_install_method }}
       • Config: {{ neovide_config_dir }}/

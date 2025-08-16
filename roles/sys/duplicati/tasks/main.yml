@@ -7,32 +7,65 @@
     state: present
   when: ansible_os_family == "Debian"
 
-- name: Fetch Duplicati {{ duplicati_channel }} index
+- name: Fetch Duplicati releases from GitHub API
   uri:
-    url: "https://updates.duplicati.com/{{ duplicati_channel }}/"
+    url: "https://api.github.com/repos/duplicati/duplicati/releases"
     return_content: true
-  register: duplicati_index
+  register: duplicati_releases
 
-- name: Extract latest Duplicati .deb filename for {{ duplicati_arch }}
+- name: Filter releases by channel
   set_fact:
-    duplicati_filename_candidates: >-
-      {{ duplicati_index.content | regex_findall('href="(duplicati-[^"]*' ~ duplicati_arch ~ '\.deb)"') }}
-  vars:
-    # Example arch values in the index: linux-x64-gui, linux-arm64-gui
-    # We match filenames like: duplicati-2.1.0.3_beta_2025-01-22-linux-x64-gui.deb
-    # and pick the last (sorted) one.
-- name: Pick latest candidate (lexicographically)
-  set_fact:
-    duplicati_filename: "{{ (duplicati_filename_candidates | sort) | last | default('') }}"
+    duplicati_filtered_releases: >
+      {%- if duplicati_channel == 'stable' -%}
+        {{ duplicati_releases.json | selectattr('prerelease', 'equalto', false) | list }}
+      {%- elif duplicati_channel == 'beta' -%}
+        {{ duplicati_releases.json | selectattr('tag_name', 'search', '_beta_') | list }}
+      {%- elif duplicati_channel == 'canary' -%}
+        {{ duplicati_releases.json | selectattr('tag_name', 'search', '_canary_') | list }}
+      {%- elif duplicati_channel == 'experimental' -%}
+        {{ duplicati_releases.json | selectattr('tag_name', 'search', '_experimental_') | list }}
+      {%- else -%}
+        {{ duplicati_releases.json | selectattr('prerelease', 'equalto', false) | list }}
+      {%- endif -%}
 
-- name: Fail if no matching .deb was found
+- name: Get latest release for channel
+  set_fact:
+    duplicati_latest_release: "{{ duplicati_filtered_releases | first | default({}) }}"
+
+- name: Display found releases for debugging
+  debug:
+    msg: "Found {{ duplicati_filtered_releases | length }} releases for channel '{{ duplicati_channel }}'"
+
+- name: Show selected release version
+  debug:
+    msg: "Selected Duplicati version: {{ duplicati_latest_release.tag_name | default('None') }}"
+  when: duplicati_latest_release != {}
+
+- name: Fail if no release found for channel
   fail:
-    msg: "No Duplicati .deb found for arch='{{ duplicati_arch }}' in channel '{{ duplicati_channel }}'"
-  when: duplicati_filename | length == 0
+    msg: "No Duplicati release found for channel '{{ duplicati_channel }}'. Available channels: stable, beta, canary, experimental"
+  when: duplicati_latest_release == {}
 
-- name: Compose download URL
+- name: Find matching .deb asset for architecture
   set_fact:
-    duplicati_url: "https://updates.duplicati.com/{{ duplicati_channel }}/{{ duplicati_filename }}"
+    duplicati_deb_asset: >
+      {{ duplicati_latest_release.assets |
+         selectattr('name', 'search', duplicati_arch + '\.deb$') |
+         first | default({}) }}
+
+- name: Fail if no matching .deb asset found
+  fail:
+    msg: "No Duplicati .deb found for arch='{{ duplicati_arch }}' in release '{{ duplicati_latest_release.tag_name }}'"
+  when: duplicati_deb_asset == {}
+
+- name: Set download URL and filename
+  set_fact:
+    duplicati_url: "{{ duplicati_deb_asset.browser_download_url }}"
+    duplicati_filename: "{{ duplicati_deb_asset.name }}"
+
+- name: Show package information
+  debug:
+    msg: "Installing Duplicati {{ duplicati_latest_release.tag_name }} from {{ duplicati_channel }} channel"
 
 - name: Download Duplicati .deb
   get_url:

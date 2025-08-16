@@ -35,8 +35,8 @@
     - role: sys/deskflow
       tags: [deskflow]
 
-    - role: tools/git-credential-manager
-      tags: [gcm, git-credential-manager, git, auth]
+#    - role: tools/git-credential-manager
+#      tags: [gcm, git-credential-manager, git, auth]
 
     - role: tools/neovim
       tags: [neovim, vim, editor]

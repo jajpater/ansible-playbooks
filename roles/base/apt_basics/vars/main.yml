@@ -1,6 +1,6 @@
 apt_packages:
   - aspell-nl
-  - batcat
+  - bat
   - build-essential
   - ca-certificates
   - curl
@@ -15,6 +15,7 @@ apt_packages:
   - ghostscript
   - git
   - gnupg
+  - gnome-software
   - gnutls-bin
   - hunspell-nl
   - icc-profiles-free
@@ -24,6 +25,7 @@ apt_packages:
   - make
   - pandoc
   - pandoc-data
+  - perl-tk
   - pipx
   - pdfgrep
   - python3
@@ -34,6 +36,7 @@ apt_packages:
   - rclone
   - rsync
   - ripgrep
+  - rofi
   - silversearcher-ag
   - snapd
   - sqlite3

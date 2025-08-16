@@ -9,36 +9,40 @@
   set_fact:
     deskflow_arch: "{{ 'x86_64' if ansible_architecture == 'x86_64' else 'aarch64' }}"
 
-- name: Get latest release information from GitHub API
+- name: Get release information from GitHub API
   uri:
-    url: "https://api.github.com/repos/deskflow/deskflow/releases/latest"
+    url: "{{ 'https://api.github.com/repos/deskflow/deskflow/releases/latest' if deskflow_version == 'latest' else 'https://api.github.com/repos/deskflow/deskflow/releases/tags/v' + deskflow_version }}"
     method: GET
     return_content: yes
   register: deskflow_release_info
-  when: deskflow_version == "latest"
 
 - name: Set version from API response
   set_fact:
     deskflow_version_resolved: "{{ deskflow_release_info.json.tag_name | regex_replace('^v', '') }}"
-  when: deskflow_version == "latest"
 
-- name: Set explicit version
+- name: Find matching .deb asset for architecture
   set_fact:
-    deskflow_version_resolved: "{{ deskflow_version | regex_replace('^v', '') }}"
-  when: deskflow_version != "latest"
+    deskflow_deb_asset: >
+      {{ deskflow_release_info.json.assets |
+         selectattr('name', 'search', 'debian-trixie-' + deskflow_arch + '\.deb$') |
+         first | default({}) }}
 
-- name: Determine download URL based on Ubuntu version
+- name: Fail if no matching .deb asset found
+  fail:
+    msg: "No Deskflow .deb found for architecture '{{ deskflow_arch }}' in release '{{ deskflow_release_info.json.tag_name }}'"
+  when: deskflow_deb_asset == {}
+
+- name: Set download URL from asset
   set_fact:
-    deskflow_download_url: >-
-      {% if ansible_distribution_version is version('25.04', '>=') -%}
-      https://github.com/deskflow/deskflow/releases/download/v{{ deskflow_version_resolved }}/deskflow-{{ deskflow_version_resolved }}-ubuntu-plucky-{{ deskflow_arch }}.deb
-      {%- else -%}
-      https://github.com/deskflow/deskflow/releases/download/v{{ deskflow_version_resolved }}/deskflow-{{ deskflow_version_resolved }}-debian-trixie-{{ deskflow_arch }}.deb
-      {%- endif %}
+    deskflow_download_url: "{{ deskflow_deb_asset.browser_download_url }}"
 
 - name: Set package filename
   set_fact:
     deskflow_package_file: "{{ temp_dir.path }}/deskflow-{{ deskflow_version_resolved }}.deb"
+
+- name: Show package information
+  debug:
+    msg: "Installing Deskflow {{ deskflow_version_resolved }} from {{ deskflow_deb_asset.name }}"
 
 - name: Download Deskflow deb package
   get_url:
@@ -48,12 +52,52 @@
     timeout: 30
   register: download_result
 
+- name: Check package dependencies before installation
+  command: dpkg-deb --info "{{ deskflow_package_file }}"
+  register: deskflow_package_info
+  changed_when: false
+
+- name: Show package dependencies
+  debug:
+    msg: "Package dependencies: {{ deskflow_package_info.stdout | regex_search('Depends: (.*)') }}"
+
 - name: Install Deskflow package
   apt:
     deb: "{{ deskflow_package_file }}"
     state: "{{ deskflow_package_state }}"
     update_cache: yes
+  register: deskflow_install_result
+  failed_when: false
   notify: verify deskflow installation
+
+- name: Check if installation actually failed due to dependency issues
+  set_fact:
+    deskflow_has_dependency_error: "{{ 'Dependency is not satisfiable' in (deskflow_install_result.msg | default('')) }}"
+
+- name: Handle installation failure with dependency issues
+  block:
+    - name: Show dependency error information
+      debug:
+        msg: |
+          Deskflow .deb installation failed due to dependency issues.
+          This is likely because the Debian package has newer dependency requirements
+          than what's available in Ubuntu {{ ansible_distribution_version }}.
+          Error: {{ deskflow_install_result.msg | default('Unknown error') }}
+    
+    - name: Set flag to attempt Flatpak installation instead
+      set_fact:
+        deskflow_fallback_to_flatpak: true
+  when: deskflow_has_dependency_error
+
+- name: Re-raise error if it's not a dependency issue but still failed
+  fail:
+    msg: "Deskflow installation failed: {{ deskflow_install_result.msg }}"
+  when:
+    - not deskflow_install_result.changed
+    - deskflow_install_result.msg is defined
+    - not deskflow_has_dependency_error
+    - "'is already installed' not in (deskflow_install_result.msg | default(''))"
+    - deskflow_fallback_to_flatpak is not defined
 
 - name: Clean up temporary directory
   file:

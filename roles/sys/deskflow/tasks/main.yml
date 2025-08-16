@@ -4,9 +4,16 @@
   include_tasks: install_deb.yml
   when: deskflow_install_method == "deb"
 
-- name: Include Flatpak installation tasks
+- name: Include Flatpak installation tasks (primary or fallback)
   include_tasks: install_flatpak.yml
-  when: deskflow_install_method == "flatpak"
+  when: >
+    deskflow_install_method == "flatpak" or
+    (deskflow_fallback_to_flatpak is defined and deskflow_fallback_to_flatpak)
+
+- name: Show fallback message
+  debug:
+    msg: "Falling back to Flatpak installation due to .deb dependency issues"
+  when: deskflow_fallback_to_flatpak is defined and deskflow_fallback_to_flatpak
 
 - name: Verify installation
   include_tasks: verify.yml

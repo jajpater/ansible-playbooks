@@ -39,6 +39,9 @@
     - role: tools/grb
       tags: [grb]
 
+    - role: tools/npm
+      tags: [npm, nodejs]
+
       #    - role: infra/systemd_user_timer
       #      tags: [timers]
 
@@ -54,14 +57,25 @@
     - role: tools/rbw
       tags: [rbw, bitwarden, password-manager]
 
+    - role: tools/claude-code
+      tags: [claude-code, tools]
+
     - role: tools/gdu
       tags: [gdu, disk-usage, analyzer]
+
+    - role: tools/atuin
+      tags: [atuin, shell, history]
 
     - role: tools/github_script
       vars:
         github_script_config: "translate-shell"
       tags: [github-script, translate-shell, translator]
 
-    - role: tools/ebooks
-      tags: [ebooks, calibre-plugins]
+    - role: tools/github_script
+      vars:
+        github_script_config: "vimv"
+      tags: [github-script, vimv, file-rename]
+
+#    - role: tools/ebooks
+#      tags: [ebooks, calibre-plugins]
 

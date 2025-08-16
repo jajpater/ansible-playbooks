@@ -3,23 +3,17 @@
   set_fact:
     deskflow_arch: "{{ 'x86_64' if ansible_architecture == 'x86_64' else 'aarch64' }}"
 
-- name: Get latest release information from GitHub API
+- name: Get release information from GitHub API for Flatpak
   uri:
-    url: "https://api.github.com/repos/deskflow/deskflow/releases/latest"
+    url: "{{ 'https://api.github.com/repos/deskflow/deskflow/releases/latest' if deskflow_version == 'latest' else 'https://api.github.com/repos/deskflow/deskflow/releases/tags/v' + deskflow_version }}"
     method: GET
     return_content: yes
-  register: deskflow_release_info
-  when: deskflow_version == "latest"
+  register: deskflow_flatpak_release_info
 
-- name: Set version from API response
+- name: Set version from API response for Flatpak (if not already set)
   set_fact:
-    deskflow_version_resolved: "{{ deskflow_release_info.json.tag_name | regex_replace('^v', '') }}"
-  when: deskflow_version == "latest"
-
-- name: Set explicit version
-  set_fact:
-    deskflow_version_resolved: "{{ deskflow_version | regex_replace('^v', '') }}"
-  when: deskflow_version != "latest"
+    deskflow_version_resolved: "{{ deskflow_flatpak_release_info.json.tag_name | regex_replace('^v', '') }}"
+  when: deskflow_version_resolved is not defined
 
 - name: Ensure Flatpak is installed
   apt:
@@ -33,9 +27,21 @@
     suffix: _deskflow_flatpak
   register: temp_dir
 
-- name: Set Flatpak download URL
+- name: Find matching .flatpak asset for architecture
   set_fact:
-    deskflow_flatpak_url: "https://github.com/deskflow/deskflow/releases/download/v{{ deskflow_version_resolved }}/deskflow-{{ deskflow_version_resolved }}-linux-{{ deskflow_arch }}.flatpak"
+    deskflow_flatpak_asset: >
+      {{ deskflow_flatpak_release_info.json.assets |
+         selectattr('name', 'search', 'linux-' + deskflow_arch + '\.flatpak$') |
+         first | default({}) }}
+
+- name: Fail if no matching .flatpak asset found
+  fail:
+    msg: "No Deskflow .flatpak found for architecture '{{ deskflow_arch }}' in release '{{ deskflow_flatpak_release_info.json.tag_name }}'"
+  when: deskflow_flatpak_asset == {}
+
+- name: Set Flatpak download URL from asset
+  set_fact:
+    deskflow_flatpak_url: "{{ deskflow_flatpak_asset.browser_download_url }}"
 
 - name: Set Flatpak filename
   set_fact:
@@ -61,6 +67,9 @@
   shell: su - "$SUDO_USER" -c "flatpak install --user --noninteractive '/tmp/deskflow-{{ deskflow_version_resolved }}.flatpak'"
   register: flatpak_install_result
   changed_when: "'Nothing to do' not in flatpak_install_result.stdout"
+  failed_when: 
+    - flatpak_install_result.rc != 0
+    - "'already installed' not in flatpak_install_result.stderr"
 
 - name: Clean up user-accessible Flatpak file
   file:

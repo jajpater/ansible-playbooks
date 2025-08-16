@@ -1,26 +1,66 @@
-- name: Detect TeX Live release year from CTAN (if not provided)
+- name: Capture user home directory before any privilege changes
+  set_fact:
+    user_home: "{{ ansible_env.HOME }}"
+  when: user_home is not defined
+
+- name: Override texlive_root to use consistent user home
+  set_fact:
+    texlive_root: "{{ user_home }}/.local/share/texlive"
+  when: user_home is defined
+
+- name: Detect TeX Live release year from Dutch mirror (if not provided)
   uri:
-    url: "https://mirror.ctan.org/systems/texlive/tlnet/release-texlive.txt"
+    url: "https://ftp.snt.utwente.nl/pub/software/tex/systems/texlive/tlnet/"
     return_content: true
     follow_redirects: all
-  register: tl_release
+  register: tl_release_page
+  failed_when: false
   when: tl_year is not defined or (tl_year | string) | length == 0
 
-- name: Set tl_year fact from release file or fallback to current year
+- name: Extract TeX Live version from mirror directory listing
   set_fact:
-    tl_year: "{{ (tl_release.content | regex_search('TeX Live\\s*(\\d{4})', '\\1')) | default(ansible_date_time.year | string) }}"
-  when: (tl_year is not defined or (tl_year | string) | length == 0) and (tl_release is defined)
+    tl_detected_year: "{{ (tl_release_page.content | regex_findall('TEXLIVE_(\\d{4})') | first) if (tl_release_page.content | regex_findall('TEXLIVE_(\\d{4})') | length > 0) else None }}"
+  when: 
+    - tl_year is not defined or (tl_year | string) | length == 0
+    - tl_release_page is defined
+    - tl_release_page.status == 200
+    - tl_release_page.content is defined
+
+- name: Calculate smart fallback year based on TeX Live release cycle
+  set_fact:
+    tl_fallback_year: >
+      {%- set current_year = ansible_date_time.year | int -%}
+      {%- set current_month = ansible_date_time.month | int -%}
+      {%- if current_month >= 3 -%}
+        {{ current_year }}
+      {%- else -%}
+        {{ current_year - 1 }}
+      {%- endif -%}
+  when: tl_year is not defined or (tl_year | string) | length == 0
+
+- name: Set tl_year fact from detection or smart fallback
+  set_fact:
+    tl_year: "{{ tl_detected_year | default(tl_fallback_year) }}"
+  when: tl_year is not defined or (tl_year | string) | length == 0
 
 - name: Map architecture to TeX Live bin dir
   set_fact:
     tl_arch: >-
-      {% if ansible_architecture in ['x86_64','amd64'] %}x86_64-linux
-      {% elif ansible_architecture in ['aarch64','arm64'] %}aarch64-linux
-      {% else %}{{ ansible_architecture }}-linux{% endif %}
+      {%- if ansible_architecture in ['x86_64','amd64'] -%}
+      x86_64-linux
+      {%- elif ansible_architecture in ['aarch64','arm64'] -%}
+      aarch64-linux
+      {%- else -%}
+      {{ ansible_architecture }}-linux
+      {%- endif -%}
     tl_binflag: >-
-      {% if ansible_architecture in ['x86_64','amd64'] %}x86_64-linux
-      {% elif ansible_architecture in ['aarch64','arm64'] %}aarch64-linux
-      {% else %}{{ ansible_architecture }}-linux{% endif %}
+      {%- if ansible_architecture in ['x86_64','amd64'] -%}
+      x86_64-linux
+      {%- elif ansible_architecture in ['aarch64','arm64'] -%}
+      aarch64-linux
+      {%- else -%}
+      {{ ansible_architecture }}-linux
+      {%- endif -%}
 
 - name: Compute install paths
   set_fact:
@@ -35,27 +75,27 @@
 
 - name: Ensure cache dir for installer exists
   file:
-    path: "{{ ansible_env.HOME }}/.cache/texlive"
+    path: "{{ user_home }}/.cache/texlive"
     state: directory
     mode: "0755"
 
 - name: Download install-tl-unx.tar.gz
   get_url:
     url: "https://mirror.ctan.org/systems/texlive/tlnet/install-tl-unx.tar.gz"
-    dest: "{{ ansible_env.HOME }}/.cache/texlive/install-tl-unx.tar.gz"
+    dest: "{{ user_home }}/.cache/texlive/install-tl-unx.tar.gz"
     mode: "0644"
   when: not tlmgr_stat.stat.exists
 
 - name: Unpack installer
   unarchive:
-    src: "{{ ansible_env.HOME }}/.cache/texlive/install-tl-unx.tar.gz"
-    dest: "{{ ansible_env.HOME }}/.cache/texlive"
+    src: "{{ user_home }}/.cache/texlive/install-tl-unx.tar.gz"
+    dest: "{{ user_home }}/.cache/texlive"
     remote_src: true
   when: not tlmgr_stat.stat.exists
 
 - name: Find installer directory
   find:
-    paths: "{{ ansible_env.HOME }}/.cache/texlive"
+    paths: "{{ user_home }}/.cache/texlive"
     file_type: directory
     patterns: "install-tl-*"
     recurse: false
@@ -117,14 +157,14 @@
 
 - name: Ensure ~/.config/zsh exists (for PATH snippet)
   file:
-    path: "{{ ansible_env.HOME }}/.config/zsh"
+    path: "{{ user_home }}/.config/zsh"
     state: directory
     mode: "0755"
   when: texlive_write_profile_snippet | bool
 
 - name: Write zsh PATH snippet (uses 'current' symlink)
   copy:
-    dest: "{{ ansible_env.HOME }}/.config/zsh/texlive.zsh"
+    dest: "{{ user_home }}/.config/zsh/texlive.zsh"
     mode: "0644"
     content: |
       # TeX Live (installed by Ansible)

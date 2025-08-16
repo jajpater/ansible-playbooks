@@ -13,5 +13,6 @@
 
 - name: Install regular snaps
   community.general.snap:
-    name: ['scantailor-advanced']
+    name: []
     state: present
+  when: false  # No regular snaps to install currently

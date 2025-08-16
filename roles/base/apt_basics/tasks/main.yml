@@ -13,9 +13,11 @@
     name: "{{ apt_packages }}"
     state: present
 
-- name: Upgrade safe
-  apt:
-    upgrade: safe
-  register: apt_upgrade
-  failed_when: false
-  changed_when: apt_upgrade.stdout is defined and ('The following packages will be upgraded:' in apt_upgrade.stdout or apt_upgrade.stdout_lines | length > 0)
+- name: Upgrade safe (skipped during bootstrap)
+  debug:
+    msg: "Skipping safe upgrade during bootstrap - packages were just installed"
+  # apt:
+  #   upgrade: safe
+  # register: apt_upgrade
+  # failed_when: false
+  # changed_when: apt_upgrade.stdout is defined and ('The following packages will be upgraded:' in apt_upgrade.stdout or apt_upgrade.stdout_lines | length > 0)
