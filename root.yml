@@ -12,8 +12,8 @@
     - role: sys/guile
       tags: [guile, scheme, programming]
       
-    - role: sys/guix  
-      tags: [guix, package-manager, scheme]
+    # Note: Guix system package is now installed via base/apt_basics
+    # For latest user-level Guix, use tools/guix in user.yml
 
     - role: sys/snaps
       tags: [snap]

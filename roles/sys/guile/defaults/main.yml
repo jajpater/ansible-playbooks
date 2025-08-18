@@ -4,7 +4,7 @@ guile_version: "3.0.10"
 guile_download_url: "https://ftp.gnu.org/gnu/guile/guile-{{ guile_version }}.tar.xz"
 
 # System-wide installation paths
-guile_prefix: "/usr/local"
+guile_prefix: "/opt/guile-{{ guile_version }}"
 guile_src_dir: "/tmp/guile-{{ guile_version }}"
 guile_build_dir: "{{ guile_src_dir }}/build"
 

@@ -7,134 +7,82 @@
   loop:
     - "{{ guix_config_dir }}"
     - "{{ guix_cache_dir }}"
-    - "{{ ansible_env.HOME }}/.local/share/guix"
+    - "{{ guix_data_dir }}"
     - "{{ ansible_env.HOME }}/.local/bin"
+    - "{{ ansible_env.HOME }}/.local/src"
 
-- name: Check if Guix is already installed
+- name: Check if user Guix is already installed
   stat:
     path: "{{ guix_profile_dir }}/bin/guix"
-  register: guix_installed
+  register: guix_user_installed
 
 - name: Debug Guix installation check
   debug:
     msg: |
-      Guix installation check:
-      - Profile path: {{ guix_profile_dir }}/bin/guix
-      - Profile exists: {{ guix_installed.stat.exists }}
+      User Guix installation check:
+      - User profile path: {{ guix_profile_dir }}/bin/guix
+      - User profile exists: {{ guix_user_installed.stat.exists }}
       - Installation method: {{ guix_install_method }}
 
-- name: Check Guix daemon unprivileged support
-  command: unshare --user --net --mount --pid --fork echo "User namespaces supported"
-  register: user_namespace_check
-  failed_when: false
-  changed_when: false
-  when: guix_daemon_unprivileged
-
-- name: Debug namespace support
-  debug:
-    msg: |
-      Namespace check:
-      - Daemon unprivileged: {{ guix_daemon_unprivileged }}
-      - Namespace check RC: {{ user_namespace_check.rc | default('not run') }}
-      - Install condition: {{ not guix_installed.stat.exists and guix_install_method == "user_space" and (not guix_daemon_unprivileged or user_namespace_check.rc == 0) }}
-
-- name: Install Guix using unprivileged method
+- name: Install Guix for user (latest version)
   block:
-    - name: Download Guix source for user installation
+    - name: Download Guix binary installer
       get_url:
-        url: "https://ftp.gnu.org/gnu/guix/guix-binary-1.4.0.x86_64-linux.tar.xz"
-        dest: "{{ ansible_env.HOME }}/.local/src/guix-binary.tar.xz"
+        url: "{{ guix_binary_installer_url }}"
+        dest: "{{ guix_binary_file }}"
         mode: "0644"
-      when: not guix_installed.stat.exists
 
     - name: Extract Guix binary to user directory
       unarchive:
-        src: "{{ ansible_env.HOME }}/.local/src/guix-binary.tar.xz"
+        src: "{{ guix_binary_file }}"
         dest: "{{ ansible_env.HOME }}/.local"
         remote_src: true
         creates: "{{ ansible_env.HOME }}/.local/var/guix"
-      when: not guix_installed.stat.exists
+        # Note: This extracts to .local/var/guix, .local/gnu, etc.
 
-    - name: Create Guix profile symlink
+    - name: Create user Guix profile symlink
       file:
         src: "{{ ansible_env.HOME }}/.local/var/guix/profiles/per-user/{{ ansible_user_id }}/guix-profile"
         dest: "{{ guix_profile_dir }}"
         state: link
         force: true
-      when: not guix_installed.stat.exists
 
-    - name: Initialize Guix user profile
+    - name: Set up Guix environment in bashrc
+      lineinfile:
+        path: "{{ ansible_env.HOME }}/.bashrc"
+        line: "{{ item }}"
+        create: true
+        regexp: "^{{ item.split('=')[0] | regex_escape }}"
+        state: present
+      loop:
+        - 'export GUIX_PROFILE="{{ guix_profile_dir }}"'
+        - 'test -f "$GUIX_PROFILE/etc/profile" && . "$GUIX_PROFILE/etc/profile"'
+        - 'export PATH="$GUIX_PROFILE/bin:$PATH"'
+
+    - name: Initialize user Guix profile
       shell: |
         export GUIX_PROFILE="{{ guix_profile_dir }}"
         . "$GUIX_PROFILE/etc/profile"
         {{ guix_profile_dir }}/bin/guix pull
       args:
-        creates: "{{ ansible_env.HOME }}/.config/guix/current"
+        creates: "{{ guix_config_dir }}/current"
       environment:
         PATH: "{{ guix_profile_dir }}/bin:{{ ansible_env.PATH }}"
 
-  when: >
-    not guix_installed.stat.exists and 
-    guix_install_method == "user_space" and
-    (not guix_daemon_unprivileged or user_namespace_check.rc == 0)
+    - name: Clean up downloaded binary
+      file:
+        path: "{{ guix_binary_file }}"
+        state: absent
 
-- name: Set up Guix environment in shell profile
-  lineinfile:
-    path: "{{ ansible_env.HOME }}/.bashrc"
-    line: "{{ item }}"
-    create: true
-    regexp: "^{{ item.split('=')[0] | regex_escape }}"
-    state: present
-  loop:
-    - 'export GUIX_PROFILE="{{ guix_profile_dir }}"'
-    - 'test -f "$GUIX_PROFILE/etc/profile" && . "$GUIX_PROFILE/etc/profile"'
-    - 'export PATH="$GUIX_PROFILE/bin:$PATH"'
+  when: not guix_user_installed.stat.exists
 
-- name: Configure Guix Home
-  block:
-    - name: Generate Guix Home configuration
-      template:
-        src: home.scm.j2
-        dest: "{{ guix_home_config_file }}"
-        mode: "0644"
-      notify: reconfigure_guix_home
-
-    - name: Initialize Guix Home
-      shell: |
-        export GUIX_PROFILE="{{ guix_profile_dir }}"
-        . "$GUIX_PROFILE/etc/profile" 
-        guix home reconfigure "{{ guix_home_config_file }}"
-      args:
-        creates: "{{ guix_home_profile }}"
-      environment:
-        PATH: "{{ guix_profile_dir }}/bin:{{ ansible_env.PATH }}"
-
-    - name: Set up Guix Home environment
-      lineinfile:
-        path: "{{ ansible_env.HOME }}/.bash_profile"
-        line: 'test -f ~/.guix-home/setup-environment && . ~/.guix-home/setup-environment'
-        create: true
-        regexp: '.*\.guix-home/setup-environment.*'
-        state: present
-
-  when: guix_use_home and guix_installed.stat.exists
-
-- name: Install basic packages via Guix
-  shell: |
-    export GUIX_PROFILE="{{ guix_profile_dir }}"
-    . "$GUIX_PROFILE/etc/profile"
-    guix install {{ guix_packages | join(' ') }}
-  environment:
-    PATH: "{{ guix_profile_dir }}/bin:{{ ansible_env.PATH }}"
-  when: guix_installed.stat.exists and not guix_use_home
-
-- name: Verify Guix installation
+- name: Verify user Guix installation
   command: "{{ guix_profile_dir }}/bin/guix --version"
-  register: guix_verify
+  register: guix_user_verify
   changed_when: false
-  when: guix_installed.stat.exists
+  when: guix_user_installed.stat.exists
 
-- name: Display Guix version
+- name: Display user Guix version
   debug:
-    msg: "Guix installed successfully: {{ guix_verify.stdout_lines[0] }}"
-  when: guix_installed.stat.exists and guix_verify is defined
+    msg: "User Guix installed successfully: {{ guix_user_verify.stdout_lines[0] }}"
+  when: guix_user_verify is defined and guix_user_verify.stdout_lines is defined and guix_user_verify.stdout_lines | length > 0

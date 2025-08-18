@@ -78,6 +78,11 @@
         (tool_installation_method == 'hybrid' and 
          tool_installation_config.rbw.method == 'individual')
 
+    # Optional: Latest user-level Guix installation (for bleeding edge users)
+    - role: tools/guix
+      tags: [guix, package-manager, latest]
+      when: install_user_guix or guix_installation_method == 'user'
+
     # Guix-based tool installation (enabled when any tool uses Guix)
     - role: tools/guix-tools
       tags: [guix-tools, development, cli-tools]

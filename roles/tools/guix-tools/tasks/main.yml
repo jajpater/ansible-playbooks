@@ -1,14 +1,50 @@
 ---
-- name: Check if system-wide Guix is available
+- name: Check if system Guix is available (APT)
   command: "{{ guix_tools_system_binary }} --version"
-  register: guix_check
+  register: guix_system_check
   failed_when: false
   changed_when: false
 
-- name: Fail if Guix is not installed
+- name: Check if user Guix is available (compiled)
+  command: "{{ guix_tools_user_binary }} --version"
+  register: guix_user_check
+  failed_when: false
+  changed_when: false
+
+- name: Determine which Guix to use
+  set_fact:
+    guix_binary: >
+      {%- if guix_user_check.rc == 0 -%}
+        {{ guix_tools_user_binary }}
+      {%- elif guix_system_check.rc == 0 -%}
+        {{ guix_tools_system_binary }}
+      {%- else -%}
+        
+      {%- endif -%}
+    guix_installation_type: >
+      {%- if guix_user_check.rc == 0 -%}
+        user
+      {%- elif guix_system_check.rc == 0 -%}
+        system
+      {%- else -%}
+        none
+      {%- endif -%}
+
+- name: Debug Guix detection
+  debug:
+    msg: |
+      Guix detection results:
+      - System Guix ({{ guix_tools_system_binary }}): {{ 'available' if guix_system_check.rc == 0 else 'not available' }}
+      - User Guix ({{ guix_tools_user_binary }}): {{ 'available' if guix_user_check.rc == 0 else 'not available' }}
+      - Using: {{ guix_binary if guix_binary else 'none found' }} ({{ guix_installation_type }})
+
+- name: Fail if no Guix is available
   fail:
-    msg: "Guix is not installed. Please install Guix first using the 'guix' role before running guix-tools."
-  when: guix_check.rc != 0
+    msg: |
+      No Guix installation found. Please install Guix using one of these methods:
+      1. System-wide via APT: sudo apt install guix
+      2. User-level latest: Set install_user_guix: true or guix_installation_method: 'user'
+  when: guix_installation_type == 'none'
 
 - name: Compute tools to install via Guix (hybrid mode)
   set_fact:
@@ -50,12 +86,12 @@
     if [ -f "$GUIX_PROFILE/etc/profile" ]; then
         . "$GUIX_PROFILE/etc/profile"
     fi
-    {{ guix_tools_system_binary }} package --list-installed | grep -q "^{{ item.package_name }}"
+    {{ guix_binary }} package --list-installed | grep -q "^{{ item.package_name }}"
   register: guix_tool_installed
   failed_when: false
   changed_when: false
   environment:
-    PATH: "/usr/local/bin:{{ guix_tools_profile }}/bin:{{ ansible_env.PATH }}"
+    PATH: "{{ guix_tools_profile }}/bin:{{ ansible_env.PATH }}"
   loop: "{{ guix_tools_to_install }}"
   loop_control:
     label: "{{ item.package_name }}"
@@ -67,9 +103,9 @@
     if [ -f "$GUIX_PROFILE/etc/profile" ]; then
         . "$GUIX_PROFILE/etc/profile"
     fi
-    {{ guix_tools_system_binary }} install {{ item.item.package_name }}
+    {{ guix_binary }} install {{ item.item.package_name }}
   environment:
-    PATH: "/usr/local/bin:{{ guix_tools_profile }}/bin:{{ ansible_env.PATH }}"
+    PATH: "{{ guix_tools_profile }}/bin:{{ ansible_env.PATH }}"
   when: item.rc != 0
   loop: "{{ guix_tool_installed.results }}"
   loop_control:
@@ -81,9 +117,9 @@
     if [ -f "$GUIX_PROFILE/etc/profile" ]; then
         . "$GUIX_PROFILE/etc/profile"
     fi
-    {{ guix_tools_system_binary }} install {{ guix_tools_dev_packages | join(' ') }}
+    {{ guix_binary }} install {{ guix_tools_dev_packages | join(' ') }}
   environment:
-    PATH: "/usr/local/bin:{{ guix_tools_profile }}/bin:{{ ansible_env.PATH }}"
+    PATH: "{{ guix_tools_profile }}/bin:{{ ansible_env.PATH }}"
   when: guix_tools_install_dev
 
 - name: Verify tool installations
@@ -97,7 +133,7 @@
         fzf --version
       register: fzf_verify
       environment:
-        PATH: "/usr/local/bin:{{ guix_tools_profile }}/bin:{{ ansible_env.PATH }}"
+        PATH: "{{ guix_tools_profile }}/bin:{{ ansible_env.PATH }}"
       changed_when: false
 
     - name: Check zoxide installation  
@@ -109,7 +145,7 @@
         zoxide --version
       register: zoxide_verify
       environment:
-        PATH: "/usr/local/bin:{{ guix_tools_profile }}/bin:{{ ansible_env.PATH }}"
+        PATH: "{{ guix_tools_profile }}/bin:{{ ansible_env.PATH }}"
       changed_when: false
 
     - name: Check ripgrep installation
@@ -121,7 +157,7 @@
         rg --version
       register: ripgrep_verify
       environment:
-        PATH: "/usr/local/bin:{{ guix_tools_profile }}/bin:{{ ansible_env.PATH }}"
+        PATH: "{{ guix_tools_profile }}/bin:{{ ansible_env.PATH }}"
       changed_when: false
 
     - name: Check rust installation
@@ -133,7 +169,7 @@
         rustc --version
       register: rust_verify
       environment:
-        PATH: "/usr/local/bin:{{ guix_tools_profile }}/bin:{{ ansible_env.PATH }}"
+        PATH: "{{ guix_tools_profile }}/bin:{{ ansible_env.PATH }}"
       changed_when: false
 
     - name: Check greenclip installation
@@ -145,7 +181,7 @@
         greenclip --version
       register: greenclip_verify
       environment:
-        PATH: "/usr/local/bin:{{ guix_tools_profile }}/bin:{{ ansible_env.PATH }}"
+        PATH: "{{ guix_tools_profile }}/bin:{{ ansible_env.PATH }}"
       changed_when: false
       failed_when: false  # greenclip might not have --version
 
@@ -158,7 +194,7 @@
         rbw --version
       register: rbw_verify
       environment:
-        PATH: "/usr/local/bin:{{ guix_tools_profile }}/bin:{{ ansible_env.PATH }}"
+        PATH: "{{ guix_tools_profile }}/bin:{{ ansible_env.PATH }}"
       changed_when: false
 
   when: guix_tools_verify

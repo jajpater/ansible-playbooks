@@ -83,6 +83,18 @@
       command: ldconfig
       become: yes
 
+    - name: Create Guile environment script
+      copy:
+        dest: /etc/profile.d/guile.sh
+        mode: "0644"
+        content: |
+          # GNU Guile {{ guile_version }} environment
+          export PATH="{{ guile_prefix }}/bin:$PATH"
+          export LD_LIBRARY_PATH="{{ guile_prefix }}/lib:${LD_LIBRARY_PATH:-}"
+          export PKG_CONFIG_PATH="{{ guile_prefix }}/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+          export GUILE_LOAD_PATH="{{ guile_prefix }}/share/guile/{{ guile_version }}:${GUILE_LOAD_PATH:-}"
+      become: yes
+
     - name: Verify Guile installation
       command: "{{ guile_prefix }}/bin/guile --version"
       register: guile_verify

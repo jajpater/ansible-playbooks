@@ -1,42 +1,26 @@
 ---
-# Guix installation method
-guix_install_method: "user_space"  # Options: user_space, home_only
+# Guix installation method for user-level installation (latest version)
+guix_install_method: "user_space"
 
-# Guix Home configuration
-guix_use_home: true
-guix_home_config_file: "{{ ansible_env.HOME }}/.config/guix/home.scm"
-
-# Installation paths following XDG specification
+# User-level installation paths (XDG compliant)
 guix_home_dir: "{{ ansible_env.HOME }}"
 guix_profile_dir: "{{ ansible_env.HOME }}/.guix-profile"
 guix_home_profile: "{{ ansible_env.HOME }}/.guix-home"
 guix_config_dir: "{{ ansible_env.HOME }}/.config/guix"
 guix_cache_dir: "{{ ansible_env.HOME }}/.cache/guix"
+guix_data_dir: "{{ ansible_env.HOME }}/.local/share/guix"
 
-# Guix daemon configuration for unprivileged mode
+# Binary installation URL (latest)
+guix_binary_installer_url: "https://ftp.gnu.org/gnu/guix/guix-binary-1.4.0.x86_64-linux.tar.xz"
+guix_binary_file: "{{ ansible_env.HOME }}/.local/src/guix-binary.tar.xz"
+
+# User-level daemon (if supported)
 guix_daemon_unprivileged: false  # Disable for compatibility
-guix_daemon_socket: "{{ ansible_env.HOME }}/.local/share/guix/daemon-socket"
+guix_use_home: false  # Disable Guix Home by default
 
-# Binary installation URL (for user-space installations)
-guix_binary_installer_url: "https://guix.gnu.org/install.sh"
-
-# Environment setup
+# Environment variables for user installation
 guix_env_vars:
   GUIX_PROFILE: "{{ guix_profile_dir }}"
   XDG_CONFIG_HOME: "{{ ansible_env.HOME }}/.config"
   XDG_CACHE_HOME: "{{ ansible_env.HOME }}/.cache"
   XDG_DATA_HOME: "{{ ansible_env.HOME }}/.local/share"
-
-# Common packages to install via Guix
-guix_packages:
-  - mu
-  - fzf
-  - ripgrep
-  - git
-  - emacs
-
-# Home services to enable
-guix_home_services:
-  - shell-aliases
-  - bash-completion
-  - xdg-configuration-files

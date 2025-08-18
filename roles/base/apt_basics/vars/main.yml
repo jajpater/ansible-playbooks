@@ -19,6 +19,7 @@ apt_packages:
   - gnupg
   - gnome-software
   - gnutls-bin
+  - guix
   - hunspell-nl
   - icc-profiles-free
   - jq

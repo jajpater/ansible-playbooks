@@ -2,8 +2,9 @@
 # Guix tools to install via package manager
 # These tools replace individual Ansible roles with Guix installation
 
-# Guix profile locations  
-guix_tools_system_binary: "/usr/local/bin/guix"
+# Guix profile locations (auto-detect system vs user installation)
+guix_tools_system_binary: "/usr/bin/guix"  # APT-installed Guix
+guix_tools_user_binary: "{{ ansible_env.HOME }}/.guix-profile/bin/guix"  # User-installed Guix
 guix_tools_profile: "{{ ansible_env.HOME }}/.guix-profile"
 
 # All available tools that can be installed via Guix

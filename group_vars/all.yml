@@ -25,6 +25,13 @@ scantailor_auto_aliases: true
 # Options: 'guix', 'individual', or 'hybrid'
 tool_installation_method: "hybrid"
 
+# Guix installation method preference
+# Options: 'system' (APT package) or 'user' (latest binary from GNU)
+guix_installation_method: "system"
+
+# Install user-level Guix for latest version (when guix_installation_method is 'user')
+install_user_guix: false
+
 # Per-tool installation configuration (used in hybrid mode)
 # For non-hybrid modes, this is ignored and global method is used
 tool_installation_config:
