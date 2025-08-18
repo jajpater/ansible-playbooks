@@ -1,0 +1,194 @@
+---
+- name: Check if system-wide Guix is available
+  command: "{{ guix_tools_system_binary }} --version"
+  register: guix_check
+  failed_when: false
+  changed_when: false
+
+- name: Fail if Guix is not installed
+  fail:
+    msg: "Guix is not installed. Please install Guix first using the 'guix' role before running guix-tools."
+  when: guix_check.rc != 0
+
+- name: Compute tools to install via Guix (hybrid mode)
+  set_fact:
+    guix_tools_to_install: >-
+      {{
+        guix_tools_available | dict2items |
+        selectattr('key', 'in', tool_installation_config.keys()) |
+        selectattr('key', 'in', 
+          (tool_installation_config | dict2items | 
+           selectattr('value.method', 'equalto', 'guix') | 
+           map(attribute='key') | list)) |
+        map(attribute='value') | list
+      }}
+  when: tool_installation_method == 'hybrid'
+
+- name: Compute tools to install via Guix (pure guix mode)
+  set_fact:
+    guix_tools_to_install: >-
+      {{ guix_tools_available | dict2items | map(attribute='value') | list }}
+  when: tool_installation_method == 'guix'
+
+- name: Set empty tool list for individual mode
+  set_fact:
+    guix_tools_to_install: []
+  when: tool_installation_method == 'individual'
+
+- name: Debug - Show computed Guix packages
+  debug:
+    msg: |
+      Installation method: {{ tool_installation_method }}
+      Available tools: {{ guix_tools_available.keys() | list }}
+      Config keys: {{ tool_installation_config.keys() | list if tool_installation_method == 'hybrid' else 'N/A' }}
+      Guix tools: {{ (tool_installation_config | dict2items | selectattr('value.method', 'equalto', 'guix') | map(attribute='key') | list) if tool_installation_method == 'hybrid' else 'N/A' }}
+      Tools to install: {{ guix_tools_to_install | default([]) | map(attribute='package_name') | list }}
+
+- name: Check which tools are already installed
+  shell: |
+    export GUIX_PROFILE="{{ guix_tools_profile }}"
+    if [ -f "$GUIX_PROFILE/etc/profile" ]; then
+        . "$GUIX_PROFILE/etc/profile"
+    fi
+    {{ guix_tools_system_binary }} package --list-installed | grep -q "^{{ item.package_name }}"
+  register: guix_tool_installed
+  failed_when: false
+  changed_when: false
+  environment:
+    PATH: "/usr/local/bin:{{ guix_tools_profile }}/bin:{{ ansible_env.PATH }}"
+  loop: "{{ guix_tools_to_install }}"
+  loop_control:
+    label: "{{ item.package_name }}"
+  when: guix_tools_to_install | length > 0
+
+- name: Install tools via Guix
+  shell: |
+    export GUIX_PROFILE="{{ guix_tools_profile }}"
+    if [ -f "$GUIX_PROFILE/etc/profile" ]; then
+        . "$GUIX_PROFILE/etc/profile"
+    fi
+    {{ guix_tools_system_binary }} install {{ item.item.package_name }}
+  environment:
+    PATH: "/usr/local/bin:{{ guix_tools_profile }}/bin:{{ ansible_env.PATH }}"
+  when: item.rc != 0
+  loop: "{{ guix_tool_installed.results }}"
+  loop_control:
+    label: "{{ item.item.package_name }}"
+
+- name: Install development packages via Guix
+  shell: |
+    export GUIX_PROFILE="{{ guix_tools_profile }}"
+    if [ -f "$GUIX_PROFILE/etc/profile" ]; then
+        . "$GUIX_PROFILE/etc/profile"
+    fi
+    {{ guix_tools_system_binary }} install {{ guix_tools_dev_packages | join(' ') }}
+  environment:
+    PATH: "/usr/local/bin:{{ guix_tools_profile }}/bin:{{ ansible_env.PATH }}"
+  when: guix_tools_install_dev
+
+- name: Verify tool installations
+  block:
+    - name: Check fzf installation
+      shell: |
+        export GUIX_PROFILE="{{ guix_tools_profile }}"
+        if [ -f "$GUIX_PROFILE/etc/profile" ]; then
+            . "$GUIX_PROFILE/etc/profile"
+        fi
+        fzf --version
+      register: fzf_verify
+      environment:
+        PATH: "/usr/local/bin:{{ guix_tools_profile }}/bin:{{ ansible_env.PATH }}"
+      changed_when: false
+
+    - name: Check zoxide installation  
+      shell: |
+        export GUIX_PROFILE="{{ guix_tools_profile }}"
+        if [ -f "$GUIX_PROFILE/etc/profile" ]; then
+            . "$GUIX_PROFILE/etc/profile"
+        fi
+        zoxide --version
+      register: zoxide_verify
+      environment:
+        PATH: "/usr/local/bin:{{ guix_tools_profile }}/bin:{{ ansible_env.PATH }}"
+      changed_when: false
+
+    - name: Check ripgrep installation
+      shell: |
+        export GUIX_PROFILE="{{ guix_tools_profile }}"
+        if [ -f "$GUIX_PROFILE/etc/profile" ]; then
+            . "$GUIX_PROFILE/etc/profile"
+        fi
+        rg --version
+      register: ripgrep_verify
+      environment:
+        PATH: "/usr/local/bin:{{ guix_tools_profile }}/bin:{{ ansible_env.PATH }}"
+      changed_when: false
+
+    - name: Check rust installation
+      shell: |
+        export GUIX_PROFILE="{{ guix_tools_profile }}"
+        if [ -f "$GUIX_PROFILE/etc/profile" ]; then
+            . "$GUIX_PROFILE/etc/profile"
+        fi
+        rustc --version
+      register: rust_verify
+      environment:
+        PATH: "/usr/local/bin:{{ guix_tools_profile }}/bin:{{ ansible_env.PATH }}"
+      changed_when: false
+
+    - name: Check greenclip installation
+      shell: |
+        export GUIX_PROFILE="{{ guix_tools_profile }}"
+        if [ -f "$GUIX_PROFILE/etc/profile" ]; then
+            . "$GUIX_PROFILE/etc/profile"
+        fi
+        greenclip --version
+      register: greenclip_verify
+      environment:
+        PATH: "/usr/local/bin:{{ guix_tools_profile }}/bin:{{ ansible_env.PATH }}"
+      changed_when: false
+      failed_when: false  # greenclip might not have --version
+
+    - name: Check rbw installation
+      shell: |
+        export GUIX_PROFILE="{{ guix_tools_profile }}"
+        if [ -f "$GUIX_PROFILE/etc/profile" ]; then
+            . "$GUIX_PROFILE/etc/profile"
+        fi
+        rbw --version
+      register: rbw_verify
+      environment:
+        PATH: "/usr/local/bin:{{ guix_tools_profile }}/bin:{{ ansible_env.PATH }}"
+      changed_when: false
+
+  when: guix_tools_verify
+
+- name: Display installation results
+  debug:
+    msg: |
+      Guix Tools Installation Summary:
+      - fzf: {{ (fzf_verify.stdout_lines[0] if fzf_verify.stdout_lines|length > 0 else 'Output empty') if fzf_verify is defined and fzf_verify.rc == 0 else 'Not verified' }}
+      - zoxide: {{ (zoxide_verify.stdout_lines[0] if zoxide_verify.stdout_lines|length > 0 else 'Output empty') if zoxide_verify is defined and zoxide_verify.rc == 0 else 'Not verified' }}  
+      - ripgrep: {{ (ripgrep_verify.stdout_lines[0] if ripgrep_verify.stdout_lines|length > 0 else 'Output empty') if ripgrep_verify is defined and ripgrep_verify.rc == 0 else 'Not verified' }}
+      - rust: {{ (rust_verify.stdout_lines[0] if rust_verify.stdout_lines|length > 0 else 'Output empty') if rust_verify is defined and rust_verify.rc == 0 else 'Not verified' }}
+      - greenclip: {{ 'Installed' if greenclip_verify is defined else 'Not verified' }}
+      - rbw: {{ (rbw_verify.stdout_lines[0] if rbw_verify.stdout_lines|length > 0 else 'Output empty') if rbw_verify is defined and rbw_verify.rc == 0 else 'Not verified' }}
+  when: guix_tools_verify
+
+- name: Show replaced roles information
+  debug:
+    msg: |
+      The following individual Ansible roles are now replaced by this guix-tools role:
+      {% for tool in guix_tools_to_install %}
+      {% if tool.replaces_role != 'none' %}
+      - {{ tool.package_name }}: {{ tool.replaces_role }} ({{ tool.description }})
+      {% endif %}
+      {% endfor %}
+      
+      Installation method: {{ tool_installation_method }}
+      {% if tool_installation_method == 'hybrid' %}
+      Per-tool configuration:
+      {% for tool_name, config in tool_installation_config.items() %}
+      - {{ tool_name }}: {{ config.method }} ({{ config.reason }})
+      {% endfor %}
+      {% endif %}

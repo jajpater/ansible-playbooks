@@ -1,0 +1,23 @@
+---
+# Guix installation method for system-wide installation
+guix_install_method: "system_wide"
+
+# System-wide installation paths
+guix_prefix: "/usr/local"
+guix_daemon_user: "guixbuilder"
+guix_daemon_group: "guixbuild"
+guix_store_dir: "/gnu/store"
+guix_state_dir: "/var/guix"
+guix_config_dir: "/etc/guix"
+
+# Binary installation URL
+guix_binary_installer_url: "https://ftp.gnu.org/gnu/guix/guix-binary-1.4.0.x86_64-linux.tar.xz"
+guix_binary_file: "/tmp/guix-binary.tar.xz"
+
+# Service configuration
+guix_enable_daemon: true
+guix_daemon_service_file: "/etc/systemd/system/guix-daemon.service"
+
+# Environment setup
+guix_profile_dir: "/etc/guix/profile"
+guix_system_profile: "{{ guix_profile_dir }}"

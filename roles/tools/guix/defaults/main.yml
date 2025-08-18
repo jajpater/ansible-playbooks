@@ -14,7 +14,7 @@ guix_config_dir: "{{ ansible_env.HOME }}/.config/guix"
 guix_cache_dir: "{{ ansible_env.HOME }}/.cache/guix"
 
 # Guix daemon configuration for unprivileged mode
-guix_daemon_unprivileged: true
+guix_daemon_unprivileged: false  # Disable for compatibility
 guix_daemon_socket: "{{ ansible_env.HOME }}/.local/share/guix/daemon-socket"
 
 # Binary installation URL (for user-space installations)

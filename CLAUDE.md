@@ -36,6 +36,22 @@ ansible-playbook user.yml --tags fzf,zoxide
 ansible-playbook root.yml -K --tags chrome,vscode
 ```
 
+### Tool Installation Methods
+This repository supports two methods for installing development tools:
+
+**Method 1: Guix Package Manager (Default)**
+```bash
+# Uses Guix for modern package management with rollback capabilities
+ansible-playbook user.yml --tags guix-tools
+```
+
+**Method 2: Individual Ansible Roles**  
+```bash
+# Uses traditional individual roles for each tool
+# First change tool_installation_method in group_vars/all.yml to 'individual'
+ansible-playbook user.yml --tags fzf,zoxide,rust,greenclip,rbw
+```
+
 ### Development Commands
 ```bash
 # Syntax validation
@@ -87,6 +103,7 @@ ansible-playbook test-scantailor-advanced.yml
 - **`scantailor_*`** - Controls ScanTailor installation variants and shell aliases
 - **`user_home`** - Resolves to `{{ ansible_env.HOME }}`
 - **`user_bin`** - Points to `{{ ansible_env.HOME }}/.local/bin`
+- **`tool_installation_method`** - Choose between 'guix' or 'individual' for development tools (default: 'guix')
 
 ## Development Guidelines
 

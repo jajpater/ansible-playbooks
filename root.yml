@@ -8,6 +8,13 @@
     - role: base/apt_basics
       tags: [apt_basics]
 
+    # GNU Guix ecosystem (system-wide installation)
+    - role: sys/guile
+      tags: [guile, scheme, programming]
+      
+    - role: sys/guix  
+      tags: [guix, package-manager, scheme]
+
     - role: sys/snaps
       tags: [snap]
 

@@ -1,0 +1,7 @@
+---
+- name: restart_guix_daemon
+  systemd:
+    name: guix-daemon
+    state: restarted
+    daemon_reload: yes
+  become: yes

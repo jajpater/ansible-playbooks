@@ -20,3 +20,77 @@ scantailor_compiled_variant: "advanced"  # advanced | experimental | deviant | u
 
 # Auto-create shell aliases when both versions are installed
 scantailor_auto_aliases: true
+
+# Tool installation method preference
+# Options: 'guix', 'individual', or 'hybrid'
+tool_installation_method: "hybrid"
+
+# Per-tool installation configuration (used in hybrid mode)
+# For non-hybrid modes, this is ignored and global method is used
+tool_installation_config:
+  # Complex tools with extensive configuration → individual roles
+  zoxide:
+    method: "individual"
+    reason: "Shell integration and profile management"
+    
+  rust:
+    method: "individual" 
+    reason: "XDG compliance, cargo config, component management"
+    
+  rbw:
+    method: "individual"
+    reason: "Bitwarden server config, rofi integration, security settings"
+    
+  # Simple tools with minimal configuration → Guix
+  fzf:
+    method: "guix"
+    reason: "Simple binary installation, no complex configuration needed"
+    
+  greenclip:
+    method: "guix"
+    reason: "Simple binary installation, no complex configuration needed"
+    
+  mu:
+    method: "guix"
+    reason: "Avoid Guile compilation issues, simple email tool"
+
+# Legacy support - tools that can be managed by either method
+guix_replaceable_tools:
+  - fzf
+  - zoxide  
+  - rust
+  - greenclip
+  - rbw
+  - mu
+
+# Computed variables for backward compatibility and role conditionals
+use_guix_for_tools: >-
+  {{
+    tool_installation_method == 'guix' or
+    (tool_installation_method == 'hybrid' and 
+     tool_installation_config.values() | selectattr('method', 'equalto', 'guix') | list | length > 0)
+  }}
+
+use_individual_roles: >-
+  {{
+    tool_installation_method == 'individual' or
+    (tool_installation_method == 'hybrid' and
+     tool_installation_config.values() | selectattr('method', 'equalto', 'individual') | list | length > 0)
+  }}
+
+# Helper function to determine if a specific tool should use a specific method
+# Usage in roles: when: tool_uses_method('fzf', 'guix')
+use_tool_method: |
+  {%- macro tool_uses_method(tool_name, method_name) -%}
+    {%- if tool_installation_method == method_name -%}
+      true
+    {%- elif tool_installation_method == 'hybrid' -%}
+      {%- if tool_name in tool_installation_config and tool_installation_config[tool_name].method == method_name -%}
+        true
+      {%- else -%}
+        false
+      {%- endif -%}
+    {%- else -%}
+      false
+    {%- endif -%}
+  {%- endmacro -%}

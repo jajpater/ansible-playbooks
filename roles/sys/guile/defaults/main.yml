@@ -1,0 +1,30 @@
+---
+# Guile version configuration
+guile_version: "3.0.10"
+guile_download_url: "https://ftp.gnu.org/gnu/guile/guile-{{ guile_version }}.tar.xz"
+
+# System-wide installation paths
+guile_prefix: "/usr/local"
+guile_src_dir: "/tmp/guile-{{ guile_version }}"
+guile_build_dir: "{{ guile_src_dir }}/build"
+
+# Build configuration for system-wide installation
+guile_configure_options:
+  - "--prefix={{ guile_prefix }}"
+  - "--enable-shared"
+  - "--disable-static"
+  - "--sysconfdir=/etc"
+  - "--localstatedir=/var"
+
+# Dependencies that need to be present (handled by base/apt_basics)
+guile_build_dependencies:
+  - build-essential
+  - libgmp-dev
+  - libunistring-dev
+  - libgc-dev
+  - libffi-dev
+  - libtool
+  - pkg-config
+  - texinfo
+  - gettext
+  - gperf

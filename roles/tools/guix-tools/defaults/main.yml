@@ -1,0 +1,68 @@
+---
+# Guix tools to install via package manager
+# These tools replace individual Ansible roles with Guix installation
+
+# Guix profile locations  
+guix_tools_system_binary: "/usr/local/bin/guix"
+guix_tools_profile: "{{ ansible_env.HOME }}/.guix-profile"
+
+# All available tools that can be installed via Guix
+guix_tools_available:
+  # Development and search tools
+  fzf:
+    package_name: "fzf"
+    description: "Command-line fuzzy finder"
+    replaces_role: "tools/fzf"
+    tags: ["fzf", "fuzzy-finder", "search"]
+    
+  ripgrep:
+    package_name: "ripgrep"  
+    description: "Line-oriented search tool (grep alternative)"
+    replaces_role: "none"  # Core utility, always install with Guix
+    tags: ["ripgrep", "rg", "search", "grep"]
+    
+  zoxide:
+    package_name: "zoxide"
+    description: "Smarter cd command with frecency algorithm"
+    replaces_role: "tools/zoxide" 
+    tags: ["zoxide", "cd", "navigation"]
+    
+  rust:
+    package_name: "rust"
+    description: "Rust programming language and toolchain"
+    replaces_role: "tools/rust"
+    tags: ["rust", "programming", "language", "cargo"]
+
+  greenclip:
+    package_name: "greenclip"
+    description: "Simple clipboard manager for X11"
+    replaces_role: "tools/greenclip"
+    tags: ["greenclip", "clipboard", "x11"]
+
+  rbw:
+    package_name: "rbw" 
+    description: "Unofficial Bitwarden command line client"
+    replaces_role: "tools/rbw"
+    tags: ["rbw", "bitwarden", "password-manager"]
+    
+  mu:
+    package_name: "mu"
+    description: "Email indexing and search tool"
+    replaces_role: "tools/mu"
+    tags: ["mu", "mail", "maildir"]
+
+# Simplified list - will be computed dynamically in tasks
+guix_tools_packages: []
+
+# Optional: Install development environments
+guix_tools_dev_packages:
+  - "git"
+  - "emacs"
+  - "make"
+  - "gcc-toolchain"
+
+# Whether to install development packages
+guix_tools_install_dev: false
+
+# Whether to verify installations
+guix_tools_verify: true

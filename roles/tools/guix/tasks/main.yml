@@ -15,12 +15,28 @@
     path: "{{ guix_profile_dir }}/bin/guix"
   register: guix_installed
 
+- name: Debug Guix installation check
+  debug:
+    msg: |
+      Guix installation check:
+      - Profile path: {{ guix_profile_dir }}/bin/guix
+      - Profile exists: {{ guix_installed.stat.exists }}
+      - Installation method: {{ guix_install_method }}
+
 - name: Check Guix daemon unprivileged support
   command: unshare --user --net --mount --pid --fork echo "User namespaces supported"
   register: user_namespace_check
   failed_when: false
   changed_when: false
   when: guix_daemon_unprivileged
+
+- name: Debug namespace support
+  debug:
+    msg: |
+      Namespace check:
+      - Daemon unprivileged: {{ guix_daemon_unprivileged }}
+      - Namespace check RC: {{ user_namespace_check.rc | default('not run') }}
+      - Install condition: {{ not guix_installed.stat.exists and guix_install_method == "user_space" and (not guix_daemon_unprivileged or user_namespace_check.rc == 0) }}
 
 - name: Install Guix using unprivileged method
   block:

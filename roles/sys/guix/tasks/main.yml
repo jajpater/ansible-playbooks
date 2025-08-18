@@ -1,0 +1,146 @@
+---
+- name: Check if Guix is already installed
+  stat:
+    path: "/usr/local/bin/guix"
+  register: guix_installed
+
+- name: Debug Guix installation check
+  debug:
+    msg: |
+      Guix installation check:
+      - System binary exists: {{ guix_installed.stat.exists }}
+      - Installation method: {{ guix_install_method }}
+
+- name: Install Guix system-wide
+  block:
+    - name: Download Guix binary
+      get_url:
+        url: "{{ guix_binary_installer_url }}"
+        dest: "{{ guix_binary_file }}"
+        mode: "0644"
+
+    - name: Extract Guix binary to system directories
+      unarchive:
+        src: "{{ guix_binary_file }}"
+        dest: "/"
+        remote_src: true
+        creates: "/gnu/store"
+      become: yes
+
+    - name: Create guix build users group
+      group:
+        name: "{{ guix_daemon_group }}"
+        state: present
+        system: yes
+      become: yes
+
+    - name: Create guix build users
+      user:
+        name: "guixbuilder{{ item }}"
+        group: "{{ guix_daemon_group }}"
+        system: yes
+        shell: /sbin/nologin
+        home: /var/empty
+        create_home: no
+        state: present
+      loop: "{{ range(1, 11) | list }}"
+      become: yes
+
+    - name: Set up Guix daemon systemd service
+      copy:
+        dest: "{{ guix_daemon_service_file }}"
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Guix daemon
+          Requires=avahi-daemon.service
+          After=avahi-daemon.service
+          
+          [Service]
+          ExecStart=/var/guix/profiles/per-user/root/current-guix/bin/guix-daemon --build-users-group=guixbuild
+          Environment=GUIX_LOCPATH=/var/guix/profiles/per-user/root/guix-profile/lib/locale
+          RemainAfterExit=yes
+          StandardOutput=syslog
+          StandardError=syslog
+          
+          [Install]
+          WantedBy=multi-user.target
+      become: yes
+      notify: restart_guix_daemon
+
+    - name: Enable and start Guix daemon
+      systemd:
+        name: guix-daemon
+        enabled: yes
+        state: started
+        daemon_reload: yes
+      become: yes
+
+    - name: Create Guix system profile link
+      file:
+        src: "/var/guix/profiles/per-user/root/current-guix/bin/guix"
+        dest: "/usr/local/bin/guix"
+        state: link
+        force: yes
+      become: yes
+
+    - name: Create guix-profile symlink
+      file:
+        src: "/var/guix/profiles/per-user/root/current-guix"
+        dest: "/var/guix/profiles/per-user/root/guix-profile"
+        state: link
+        force: yes
+      become: yes
+
+    - name: Create Guix profile for system use
+      file:
+        src: "/var/guix/profiles/per-user/root/guix-profile"
+        dest: "{{ guix_system_profile }}"
+        state: link
+        force: yes
+      become: yes
+
+    - name: Set up system environment for Guix
+      copy:
+        dest: /etc/profile.d/guix.sh
+        mode: "0644"
+        content: |
+          # Guix system-wide configuration
+          export GUIX_PROFILE="{{ guix_system_profile }}"
+          if [ -f "$GUIX_PROFILE/etc/profile" ]; then
+              . "$GUIX_PROFILE/etc/profile"
+          fi
+          export PATH="/var/guix/profiles/per-user/root/current-guix/bin:$PATH"
+      become: yes
+
+    - name: Initialize root Guix profile
+      shell: |
+        export GUIX_PROFILE="/var/guix/profiles/per-user/root/current-guix"
+        . "$GUIX_PROFILE/etc/profile"
+        /var/guix/profiles/per-user/root/current-guix/bin/guix pull
+      args:
+        creates: "/var/guix/profiles/per-user/root/current-guix"
+      become: yes
+      environment:
+        PATH: "/var/guix/profiles/per-user/root/current-guix/bin:{{ ansible_env.PATH }}"
+
+    - name: Clean up downloaded binary
+      file:
+        path: "{{ guix_binary_file }}"
+        state: absent
+
+  when: not guix_installed.stat.exists
+
+- name: Verify Guix installation
+  shell: |
+    export GUIX_LOCPATH=/var/guix/profiles/per-user/root/guix-profile/lib/locale
+    /usr/local/bin/guix --version
+  register: guix_verify
+  changed_when: false
+  failed_when: guix_verify.rc != 0
+  when: guix_installed.stat.exists or not guix_installed.stat.exists
+
+- name: Display Guix version
+  debug:
+    msg: "Guix installed successfully: {{ guix_verify.stdout_lines[0] }}"
+  when: guix_verify is defined and guix_verify.stdout_lines is defined and guix_verify.stdout_lines | length > 0

@@ -24,14 +24,27 @@
     - role: tools/source_code_pro
       tags: [source-code-pro]
 
+    # Individual tool roles (per-tool configuration)
     - role: tools/greenclip
       tags: [greenclip]
-
+      when: >
+        tool_installation_method == 'individual' or
+        (tool_installation_method == 'hybrid' and 
+         tool_installation_config.greenclip.method == 'individual')
+      
     - role: tools/zoxide
       tags: [zoxide]
-
+      when: >
+        tool_installation_method == 'individual' or
+        (tool_installation_method == 'hybrid' and 
+         tool_installation_config.zoxide.method == 'individual')
+      
     - role: tools/fzf
       tags: [fzf]
+      when: >
+        tool_installation_method == 'individual' or
+        (tool_installation_method == 'hybrid' and 
+         tool_installation_config.fzf.method == 'individual')
 
     - role: tools/typst
       tags: [typst]
@@ -53,9 +66,22 @@
 
     - role: tools/rust
       tags: [rust]
-
+      when: >
+        tool_installation_method == 'individual' or
+        (tool_installation_method == 'hybrid' and 
+         tool_installation_config.rust.method == 'individual')
+      
     - role: tools/rbw
       tags: [rbw, bitwarden, password-manager]
+      when: >
+        tool_installation_method == 'individual' or
+        (tool_installation_method == 'hybrid' and 
+         tool_installation_config.rbw.method == 'individual')
+
+    # Guix-based tool installation (enabled when any tool uses Guix)
+    - role: tools/guix-tools
+      tags: [guix-tools, development, cli-tools]
+      when: use_guix_for_tools
 
     - role: tools/claude-code
       tags: [claude-code, tools]
@@ -76,17 +102,16 @@
         github_script_config: "vimv"
       tags: [github-script, vimv, file-rename]
 
-    - role: tools/guile
-      tags: [guile, scheme, programming]
-
-    - role: tools/guix
-      tags: [guix, package-manager, scheme]
 
     - role: tools/spacemacs
       tags: [spacemacs, emacs, editor]
 
     - role: tools/mu
       tags: [mu, mail, maildir]
+      when: >
+        tool_installation_method == 'individual' or
+        (tool_installation_method == 'hybrid' and 
+         tool_installation_config.mu.method == 'individual')
 
     - role: tools/scantailor
       tags: [scantailor, scanner, documents]
