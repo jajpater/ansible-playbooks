@@ -7,7 +7,7 @@
 
 - name: Install classic snaps
   community.general.snap:
-    name: ['bitwarden', 'bw', 'emacs', 'tmux', 'maildir-utils', 'offlineimap', 'fwupd']
+    name: ['bitwarden', 'bw', 'emacs', 'tmux', 'offlineimap', 'fwupd']
     classic: yes
     state: present
 

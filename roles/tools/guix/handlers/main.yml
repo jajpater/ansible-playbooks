@@ -1,0 +1,8 @@
+---
+- name: reconfigure_guix_home
+  shell: |
+    export GUIX_PROFILE="{{ guix_profile_dir }}"
+    . "$GUIX_PROFILE/etc/profile"
+    guix home reconfigure "{{ guix_home_config_file }}"
+  environment:
+    PATH: "{{ guix_profile_dir }}/bin:{{ ansible_env.PATH }}"

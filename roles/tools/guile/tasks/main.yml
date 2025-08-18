@@ -1,0 +1,105 @@
+---
+- name: Ensure XDG directories exist
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ guile_prefix }}/bin"
+    - "{{ guile_prefix }}/lib"
+    - "{{ guile_prefix }}/include"
+    - "{{ guile_prefix }}/share"
+    - "{{ ansible_env.HOME }}/.local/src"
+    - "{{ ansible_env.HOME }}/.cache/guile"
+    - "{{ ansible_env.HOME }}/.config"
+
+- name: Check if Guile is already installed
+  stat:
+    path: "{{ guile_prefix }}/bin/guile"
+  register: guile_installed
+
+- name: Get installed Guile version
+  command: "{{ guile_prefix }}/bin/guile --version"
+  register: guile_current_version
+  when: guile_installed.stat.exists
+  changed_when: false
+  failed_when: false
+
+- name: Determine if installation is needed
+  set_fact:
+    guile_needs_install: >-
+      {{ not guile_installed.stat.exists or 
+         guile_version not in (guile_current_version.stdout | default('')) }}
+
+- block:
+    - name: Download Guile source
+      get_url:
+        url: "{{ guile_download_url }}"
+        dest: "{{ ansible_env.HOME }}/.local/src/guile-{{ guile_version }}.tar.xz"
+        mode: "0644"
+
+    - name: Extract Guile source
+      unarchive:
+        src: "{{ ansible_env.HOME }}/.local/src/guile-{{ guile_version }}.tar.xz"
+        dest: "{{ ansible_env.HOME }}/.local/src"
+        remote_src: true
+        creates: "{{ guile_src_dir }}/configure"
+      when: guile_needs_install
+
+    - name: Create build directory
+      file:
+        path: "{{ guile_build_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Configure Guile build
+      command: >
+        ../configure {{ guile_configure_options | join(' ') }}
+      args:
+        chdir: "{{ guile_build_dir }}"
+        creates: "{{ guile_build_dir }}/Makefile"
+      environment:
+        PKG_CONFIG_PATH: "{{ guile_prefix }}/lib/pkgconfig:{{ ansible_env.PKG_CONFIG_PATH | default('') }}"
+        LD_LIBRARY_PATH: "{{ guile_prefix }}/lib:{{ ansible_env.LD_LIBRARY_PATH | default('') }}"
+
+    - name: Compile Guile
+      command: make -j{{ ansible_processor_vcpus | default(2) }}
+      args:
+        chdir: "{{ guile_build_dir }}"
+        creates: "{{ guile_build_dir }}/meta/guile"
+
+    - name: Install Guile to user directory
+      command: make install
+      args:
+        chdir: "{{ guile_build_dir }}"
+        creates: "{{ guile_prefix }}/bin/guile"
+
+    - name: Verify Guile installation
+      command: "{{ guile_prefix }}/bin/guile --version"
+      register: guile_verify
+      changed_when: false
+
+    - name: Display Guile version
+      debug:
+        msg: "Guile installed successfully: {{ guile_verify.stdout_lines[0] }}"
+
+  when: guile_needs_install
+
+- name: Ensure Guile binary is in PATH
+  lineinfile:
+    path: "{{ ansible_env.HOME }}/.bashrc"
+    line: 'export PATH="{{ guile_prefix }}/bin:$PATH"'
+    create: true
+    regexp: '^export PATH=.*{{ guile_prefix | regex_escape }}/bin'
+    state: present
+
+- name: Set up XDG environment for Guile
+  lineinfile:
+    path: "{{ ansible_env.HOME }}/.bashrc"
+    line: "{{ item }}"
+    create: true
+    regexp: "^{{ item.split('=')[0] }}="
+    state: present
+  loop:
+    - 'export XDG_CACHE_HOME="{{ ansible_env.HOME }}/.cache"'
+    - 'export XDG_CONFIG_HOME="{{ ansible_env.HOME }}/.config"'

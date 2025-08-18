@@ -1,0 +1,32 @@
+---
+# Guile version configuration
+guile_version: "3.0.10"
+guile_download_url: "https://ftp.gnu.org/gnu/guile/guile-{{ guile_version }}.tar.xz"
+
+# Installation paths following XDG specification
+guile_prefix: "{{ ansible_env.HOME }}/.local"
+guile_src_dir: "{{ ansible_env.HOME }}/.local/src/guile-{{ guile_version }}"
+guile_build_dir: "{{ guile_src_dir }}/build"
+
+# Build configuration
+guile_configure_options:
+  - "--prefix={{ guile_prefix }}"
+  - "--enable-shared"
+  - "--disable-static"
+
+# Dependencies that need to be present
+guile_build_dependencies:
+  - build-essential
+  - libgmp-dev
+  - libunistring-dev
+  - libgc-dev
+  - libffi-dev
+  - libtool
+  - pkg-config
+  - texinfo
+  - gettext
+
+# Environment variables for XDG compliance
+guile_env_vars:
+  XDG_CACHE_HOME: "{{ ansible_env.HOME }}/.cache"
+  XDG_CONFIG_HOME: "{{ ansible_env.HOME }}/.config"

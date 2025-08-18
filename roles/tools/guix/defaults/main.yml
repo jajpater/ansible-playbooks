@@ -1,0 +1,42 @@
+---
+# Guix installation method
+guix_install_method: "user_space"  # Options: user_space, home_only
+
+# Guix Home configuration
+guix_use_home: true
+guix_home_config_file: "{{ ansible_env.HOME }}/.config/guix/home.scm"
+
+# Installation paths following XDG specification
+guix_home_dir: "{{ ansible_env.HOME }}"
+guix_profile_dir: "{{ ansible_env.HOME }}/.guix-profile"
+guix_home_profile: "{{ ansible_env.HOME }}/.guix-home"
+guix_config_dir: "{{ ansible_env.HOME }}/.config/guix"
+guix_cache_dir: "{{ ansible_env.HOME }}/.cache/guix"
+
+# Guix daemon configuration for unprivileged mode
+guix_daemon_unprivileged: true
+guix_daemon_socket: "{{ ansible_env.HOME }}/.local/share/guix/daemon-socket"
+
+# Binary installation URL (for user-space installations)
+guix_binary_installer_url: "https://guix.gnu.org/install.sh"
+
+# Environment setup
+guix_env_vars:
+  GUIX_PROFILE: "{{ guix_profile_dir }}"
+  XDG_CONFIG_HOME: "{{ ansible_env.HOME }}/.config"
+  XDG_CACHE_HOME: "{{ ansible_env.HOME }}/.cache"
+  XDG_DATA_HOME: "{{ ansible_env.HOME }}/.local/share"
+
+# Common packages to install via Guix
+guix_packages:
+  - mu
+  - fzf
+  - ripgrep
+  - git
+  - emacs
+
+# Home services to enable
+guix_home_services:
+  - shell-aliases
+  - bash-completion
+  - xdg-configuration-files

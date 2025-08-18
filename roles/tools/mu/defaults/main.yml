@@ -1,0 +1,27 @@
+---
+# Installation method: 'source' or 'guix'
+mu_install_method: 'guix'
+
+# Source build configuration
+mu_build_dependencies:
+  - build-essential
+  - meson
+  - ninja-build
+  - pkg-config
+  - libglib2.0-dev
+  - libgmime-3.0-dev
+  - libxapian-dev
+  - guile-3.0-dev
+  - html2text
+  - xdg-utils
+
+# Removed snap installation method
+
+# Installation paths
+mu_src_dir: "{{ ansible_env.HOME }}/.local/src/mu"
+mu_prefix: "{{ ansible_env.HOME }}/.local"
+
+# Guix installation configuration
+mu_guix_profile: "{{ ansible_env.HOME }}/.guix-profile"
+mu_guix_packages:
+  - mu

@@ -174,6 +174,35 @@ echo "GITHUB_TOKEN=your_token_here" > ~/.config/ansible/env
     - "{{ user_home }}/.config"
 ```
 
+## Current Work Status (2025-08-16)
+
+### mu Role Migration (IN PROGRESS)
+**Status**: Converting tools/mu role from autotools to meson build system
+
+**What's been completed:**
+- ✅ Updated dependencies from autotools to meson/ninja in `defaults/main.yml`
+- ✅ Converted build process from autoconf/make to meson/ninja in `install_source.yml`
+- ✅ Fixed download task to check for `meson.build` instead of `configure.ac`
+- ✅ Verified meson setup works correctly
+
+**Current issue:**
+- Install step fails with permission error: meson tries to install Guile extension to `/usr/lib` instead of `~/.local`
+- Error: `PermissionError: [Errno 13] Permission denied: '/usr/lib/x86_64-linux-gnu/guile/3.0/extensions/libguile-mu.so'`
+
+**Solution to implement:**
+- Disable Guile during build with `-Dguile=disabled` flag in meson setup
+- Guile provides optional Scheme scripting bindings, not core functionality
+- Core mu features (indexing, searching, mu4e) work without Guile
+
+**Next steps:**
+1. Add `-Dguile=disabled` to meson setup command in `roles/tools/mu/tasks/install_source.yml:73`
+2. Clean existing build: `rm -rf ~/.local/src/mu/build`  
+3. Test the updated role: `ansible-playbook -i inventory user.yml --tags mu`
+
+**Files modified:**
+- `roles/tools/mu/defaults/main.yml` - Updated build dependencies
+- `roles/tools/mu/tasks/install_source.yml` - Converted to meson build system
+
 ## Troubleshooting
 
 ### APT Lock Issues

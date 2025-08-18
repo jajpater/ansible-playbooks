@@ -1,0 +1,13 @@
+---
+- name: Ensure snapd is installed
+  apt:
+    name: snapd
+    state: present
+  become: true
+
+- name: Install mu from snap
+  community.general.snap:
+    name: "{{ mu_snap_name }}"
+    classic: yes
+    state: present
+  become: true

@@ -1,0 +1,45 @@
+---
+- name: Check if Guix is available
+  command: "{{ mu_guix_profile }}/bin/guix --version"
+  register: guix_available
+  failed_when: false
+  changed_when: false
+
+- name: Fail if Guix is not installed
+  fail:
+    msg: "Guix is not installed or not available in {{ mu_guix_profile }}/bin/guix. Please install Guix first using the guix role."
+  when: guix_available.rc != 0
+
+- name: Check if mu is already installed via Guix
+  shell: |
+    export GUIX_PROFILE="{{ mu_guix_profile }}"
+    . "$GUIX_PROFILE/etc/profile"
+    guix package --list-installed | grep -q "^mu"
+  register: mu_guix_installed
+  failed_when: false
+  changed_when: false
+  environment:
+    PATH: "{{ mu_guix_profile }}/bin:{{ ansible_env.PATH }}"
+
+- name: Install mu via Guix
+  shell: |
+    export GUIX_PROFILE="{{ mu_guix_profile }}"
+    . "$GUIX_PROFILE/etc/profile"
+    guix install {{ mu_guix_packages | join(' ') }}
+  environment:
+    PATH: "{{ mu_guix_profile }}/bin:{{ ansible_env.PATH }}"
+  when: mu_guix_installed.rc != 0
+
+- name: Verify mu installation via Guix
+  shell: |
+    export GUIX_PROFILE="{{ mu_guix_profile }}"
+    . "$GUIX_PROFILE/etc/profile"
+    mu --version
+  register: mu_guix_verify
+  environment:
+    PATH: "{{ mu_guix_profile }}/bin:{{ ansible_env.PATH }}"
+  changed_when: false
+
+- name: Display mu version (Guix)
+  debug:
+    msg: "mu installed via Guix: {{ mu_guix_verify.stdout_lines[0] }}"

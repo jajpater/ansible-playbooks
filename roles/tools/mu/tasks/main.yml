@@ -1,0 +1,37 @@
+---
+- name: Install mu from source
+  include_tasks: install_source.yml
+  when: mu_install_method == 'source'
+
+- name: Install mu via Guix
+  include_tasks: install_guix.yml
+  when: mu_install_method == 'guix'
+
+- name: Verify mu installation
+  command: "{{ ansible_env.HOME }}/.local/bin/mu --version"
+  register: mu_version_result
+  failed_when: false
+  changed_when: false
+  when: mu_install_method == 'source'
+
+- name: Verify mu Guix installation
+  shell: |
+    export GUIX_PROFILE="{{ mu_guix_profile }}"
+    . "$GUIX_PROFILE/etc/profile"
+    mu --version
+  register: mu_guix_version_result
+  failed_when: false
+  changed_when: false
+  environment:
+    PATH: "{{ mu_guix_profile }}/bin:{{ ansible_env.PATH }}"
+  when: mu_install_method == 'guix'
+
+- name: Display mu version (source)
+  debug:
+    msg: "mu installed from source: {{ mu_version_result.stdout_lines[0] if mu_version_result.rc == 0 else 'Installation verification failed' }}"
+  when: mu_install_method == 'source' and mu_version_result is defined
+
+- name: Display mu version (Guix)
+  debug:
+    msg: "mu installed via Guix: {{ mu_guix_version_result.stdout_lines[0] if mu_guix_version_result.rc == 0 else 'Installation verification failed' }}"
+  when: mu_install_method == 'guix' and mu_guix_version_result is defined

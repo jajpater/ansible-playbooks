@@ -1,0 +1,96 @@
+---
+- name: Check if build dependencies are available
+  command: "{{ item }}"
+  register: build_deps_check
+  failed_when: false
+  changed_when: false
+  loop:
+    - "which gcc"
+    - "which meson"
+    - "which ninja"
+    - "which pkg-config"
+
+- name: Warn about missing dependencies
+  debug:
+    msg: |
+      WARNING: Some build dependencies may be missing. 
+      To install them, run: sudo apt install {{ mu_build_dependencies | join(' ') }}
+      Or install mu via snap by setting mu_install_method: 'snap'
+  when: build_deps_check.results | selectattr('rc', 'ne', 0) | list | length > 0
+
+- name: Check if essential dependencies exist
+  fail:
+    msg: |
+      Essential build tools are missing. Please install build dependencies first:
+      sudo apt install {{ mu_build_dependencies | join(' ') }}
+  when: >
+    (build_deps_check.results[0].rc != 0) or
+    (build_deps_check.results[1].rc != 0)
+
+- name: Ensure source directory exists
+  file:
+    path: "{{ mu_src_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Get latest mu release info from GitHub
+  uri:
+    url: https://api.github.com/repos/djcb/mu/releases/latest
+    method: GET
+    headers:
+      Authorization: "token {{ github_token | default(omit) }}"
+  register: mu_release_info
+
+- name: Extract latest version and tarball URL
+  set_fact:
+    mu_latest_version: "{{ mu_release_info.json.tag_name }}"
+    mu_tarball_url: "{{ mu_release_info.json.tarball_url }}"
+
+- name: Check if mu is already installed with latest version
+  stat:
+    path: "{{ mu_prefix }}/bin/mu"
+  register: mu_binary
+
+- name: Get installed mu version
+  command: "{{ mu_prefix }}/bin/mu --version"
+  register: mu_current_version
+  failed_when: false
+  changed_when: false
+  when: mu_binary.stat.exists
+
+- name: Download and extract mu source
+  unarchive:
+    src: "{{ mu_tarball_url }}"
+    dest: "{{ mu_src_dir }}"
+    remote_src: yes
+    extra_opts: ['--strip-components=1']
+    creates: "{{ mu_src_dir }}/meson.build"
+  when: >
+    not mu_binary.stat.exists or
+    (mu_current_version.rc == 0 and mu_latest_version not in mu_current_version.stdout)
+
+- name: Setup meson build directory
+  command: meson setup build --prefix={{ mu_prefix }}
+  args:
+    chdir: "{{ mu_src_dir }}"
+    creates: "{{ mu_src_dir }}/build/build.ninja"
+  when: >
+    not mu_binary.stat.exists or
+    (mu_current_version.rc == 0 and mu_latest_version not in mu_current_version.stdout)
+
+
+- name: Build mu
+  command: ninja -C build
+  args:
+    chdir: "{{ mu_src_dir }}"
+  when: >
+    not mu_binary.stat.exists or
+    (mu_current_version.rc == 0 and mu_latest_version not in mu_current_version.stdout)
+
+- name: Install mu
+  command: ninja -C build install
+  args:
+    chdir: "{{ mu_src_dir }}"
+  when: >
+    not mu_binary.stat.exists or
+    (mu_current_version.rc == 0 and mu_latest_version not in mu_current_version.stdout)

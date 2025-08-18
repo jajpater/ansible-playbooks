@@ -76,8 +76,17 @@
         github_script_config: "vimv"
       tags: [github-script, vimv, file-rename]
 
+    - role: tools/guile
+      tags: [guile, scheme, programming]
+
+    - role: tools/guix
+      tags: [guix, package-manager, scheme]
+
     - role: tools/spacemacs
       tags: [spacemacs, emacs, editor]
+
+    - role: tools/mu
+      tags: [mu, mail, maildir]
 
     - role: tools/scantailor
       tags: [scantailor, scanner, documents]
