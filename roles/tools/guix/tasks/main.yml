@@ -40,6 +40,19 @@
         creates: "{{ ansible_env.HOME }}/.local/var/guix"
         # Note: This extracts to .local/var/guix, .local/gnu, etc.
 
+    - name: Create user directory in Guix profiles
+      file:
+        path: "{{ ansible_env.HOME }}/.local/var/guix/profiles/per-user/{{ ansible_user_id }}"
+        state: directory
+        mode: "0755"
+
+    - name: Create initial user Guix profile
+      file:
+        src: "{{ ansible_env.HOME }}/.local/var/guix/profiles/per-user/root/current-guix"
+        dest: "{{ ansible_env.HOME }}/.local/var/guix/profiles/per-user/{{ ansible_user_id }}/guix-profile"
+        state: link
+        force: true
+
     - name: Create user Guix profile symlink
       file:
         src: "{{ ansible_env.HOME }}/.local/var/guix/profiles/per-user/{{ ansible_user_id }}/guix-profile"

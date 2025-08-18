@@ -27,9 +27,10 @@ tool_installation_method: "hybrid"
 
 # Guix installation method preference
 # Options: 'system' (APT package) or 'user' (latest binary from GNU)
-guix_installation_method: "system"
+# Note: APT provides daemon/system integration, user provides reliable package installation
+guix_installation_method: "hybrid"  # APT daemon + user packages (recommended)
 
-# Install user-level Guix for latest version (when guix_installation_method is 'user')
+# Install user-level Guix for package management (temporarily disabled due to TLS issues)
 install_user_guix: false
 
 # Per-tool installation configuration (used in hybrid mode)

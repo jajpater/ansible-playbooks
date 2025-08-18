@@ -11,24 +11,31 @@
   failed_when: false
   changed_when: false
 
-- name: Determine which Guix to use
+- name: Set user Guix as preferred
   set_fact:
-    guix_binary: >
-      {%- if guix_user_check.rc == 0 -%}
-        {{ guix_tools_user_binary }}
-      {%- elif guix_system_check.rc == 0 -%}
-        {{ guix_tools_system_binary }}
-      {%- else -%}
-        
-      {%- endif -%}
-    guix_installation_type: >
-      {%- if guix_user_check.rc == 0 -%}
-        user
-      {%- elif guix_system_check.rc == 0 -%}
-        system
-      {%- else -%}
-        none
-      {%- endif -%}
+    guix_binary: "{{ guix_tools_user_binary }}"
+    guix_installation_type: "user"
+  when: guix_user_check.rc == 0 and install_user_guix | default(true)
+
+- name: Set system Guix as preferred when user Guix disabled
+  set_fact:
+    guix_binary: "{{ guix_tools_system_binary }}"
+    guix_installation_type: "system"
+    guix_tools_profile: "{{ ansible_env.HOME }}/.guix-profile"
+  when: guix_system_check.rc == 0 and not (install_user_guix | default(true))
+
+- name: Set system Guix as fallback
+  set_fact:
+    guix_binary: "{{ guix_tools_system_binary }}"
+    guix_installation_type: "system"
+    guix_tools_profile: "{{ ansible_env.HOME }}/.guix-profile"
+  when: guix_user_check.rc != 0 and guix_system_check.rc == 0
+
+- name: Set no Guix available
+  set_fact:
+    guix_binary: ""
+    guix_installation_type: "none"
+  when: guix_user_check.rc != 0 and guix_system_check.rc != 0
 
 - name: Debug Guix detection
   debug:
@@ -91,7 +98,8 @@
   failed_when: false
   changed_when: false
   environment:
-    PATH: "{{ guix_tools_profile }}/bin:{{ ansible_env.PATH }}"
+    PATH: "/usr/bin:/bin:/usr/sbin:/sbin"
+    HOME: "{{ ansible_env.HOME }}"
   loop: "{{ guix_tools_to_install }}"
   loop_control:
     label: "{{ item.package_name }}"
@@ -99,17 +107,14 @@
 
 - name: Install tools via Guix
   shell: |
-    export GUIX_PROFILE="{{ guix_tools_profile }}"
-    if [ -f "$GUIX_PROFILE/etc/profile" ]; then
-        . "$GUIX_PROFILE/etc/profile"
-    fi
     {{ guix_binary }} install {{ item.item.package_name }}
-  environment:
-    PATH: "{{ guix_tools_profile }}/bin:{{ ansible_env.PATH }}"
-  when: item.rc != 0
-  loop: "{{ guix_tool_installed.results }}"
+  loop: "{{ guix_tool_installed.results | default([]) }}"
   loop_control:
     label: "{{ item.item.package_name }}"
+  when: 
+    - item.rc != 0
+    - guix_tools_to_install | length > 0
+  register: guix_install_result
 
 - name: Install development packages via Guix
   shell: |
@@ -121,6 +126,37 @@
   environment:
     PATH: "{{ guix_tools_profile }}/bin:{{ ansible_env.PATH }}"
   when: guix_tools_install_dev
+
+- name: Configure Guix profile in zsh
+  blockinfile:
+    path: "{{ ansible_env.HOME }}/.zshrc"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - Guix Environment"
+    block: |
+      # Guix package manager setup
+      export GUIX_PROFILE="{{ guix_tools_profile }}"
+      if [ -f "$GUIX_PROFILE/etc/profile" ]; then
+          . "$GUIX_PROFILE/etc/profile"
+      fi
+    create: yes
+  when: guix_tools_to_install | length > 0
+
+- name: Configure mu4e in Spacemacs for Guix installation
+  replace:
+    path: "{{ ansible_env.HOME }}/.spacemacs"
+    regexp: 'mu4e-installation-path "[^"]*"'
+    replace: 'mu4e-installation-path "{{ guix_tools_profile }}/share/emacs/site-lisp/mu4e/"'
+  when: 
+    - guix_tools_to_install | selectattr('package_name', 'equalto', 'mu') | list | length > 0
+    - "(ansible_env.HOME + '/.spacemacs') is file"
+
+- name: Update mu4e mu-home path for Guix in Spacemacs
+  replace:
+    path: "{{ ansible_env.HOME }}/.spacemacs"
+    regexp: 'mu4e-mu-home "[^"]*"'
+    replace: 'mu4e-mu-home "{{ ansible_env.HOME }}/.local/share/mu"'
+  when: 
+    - guix_tools_to_install | selectattr('package_name', 'equalto', 'mu') | list | length > 0
+    - "(ansible_env.HOME + '/.spacemacs') is file"
 
 - name: Verify tool installations
   block:
@@ -197,7 +233,28 @@
         PATH: "{{ guix_tools_profile }}/bin:{{ ansible_env.PATH }}"
       changed_when: false
 
+    - name: Check mu installation
+      shell: |
+        export GUIX_PROFILE="{{ guix_tools_profile }}"
+        if [ -f "$GUIX_PROFILE/etc/profile" ]; then
+            . "$GUIX_PROFILE/etc/profile"
+        fi
+        mu --version
+      register: mu_verify
+      environment:
+        PATH: "{{ guix_tools_profile }}/bin:{{ ansible_env.PATH }}"
+      changed_when: false
+      when: guix_tools_to_install | selectattr('package_name', 'equalto', 'mu') | list | length > 0
+
   when: guix_tools_verify
+
+- name: Create mu database directory
+  file:
+    path: "{{ ansible_env.HOME }}/.local/share/mu"
+    state: directory
+    mode: '0755'
+  when: 
+    - guix_tools_to_install | selectattr('package_name', 'equalto', 'mu') | list | length > 0
 
 - name: Display installation results
   debug:
@@ -209,6 +266,7 @@
       - rust: {{ (rust_verify.stdout_lines[0] if rust_verify.stdout_lines|length > 0 else 'Output empty') if rust_verify is defined and rust_verify.rc == 0 else 'Not verified' }}
       - greenclip: {{ 'Installed' if greenclip_verify is defined else 'Not verified' }}
       - rbw: {{ (rbw_verify.stdout_lines[0] if rbw_verify.stdout_lines|length > 0 else 'Output empty') if rbw_verify is defined and rbw_verify.rc == 0 else 'Not verified' }}
+      - mu: {{ (mu_verify.stdout_lines[0] if mu_verify.stdout_lines|length > 0 else 'Output empty') if mu_verify is defined and mu_verify.rc == 0 else 'Not verified' }}
   when: guix_tools_verify
 
 - name: Show replaced roles information

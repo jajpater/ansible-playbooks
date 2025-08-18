@@ -136,6 +136,14 @@ ansible-playbook user.yml --tags fzf,zoxide,typst,grb,texlive
 - `typst` - Document preparation system
 - `grb` - Git repository browser
 - `texlive` - LaTeX system
+- `guix-tools` - GNU Guix package manager and tools (includes `mu`, `fzf`, `greenclip`)
+
+### Special Package Managers
+
+#### Guix Tools (`--tags guix-tools`)
+This playbook automatically sets up GNU Guix (a functional package manager) and installs tools like `mu` (email indexer), `fzf`, and `greenclip` through Guix instead of individual installation methods.
+
+**📚 For detailed information about Guix, see:** [`docs/GUILE-GUIX-GUIDE.md`](docs/GUILE-GUIX-GUIDE.md)
 
 ## Step-by-Step First Run
 

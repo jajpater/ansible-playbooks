@@ -19,6 +19,8 @@ apt_packages:
   - gnupg
   - gnome-software
   - gnutls-bin
+  - gnutls-dev
+  - libgnutls28-dev
   - guix
   - hunspell-nl
   - icc-profiles-free
