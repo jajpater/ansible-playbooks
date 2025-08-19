@@ -37,18 +37,25 @@ ansible-playbook root.yml -K --tags chrome,vscode
 ```
 
 ### Tool Installation Methods
-This repository supports two methods for installing development tools:
+This repository supports multiple installation strategies:
 
-**Method 1: Guix Package Manager (Default)**
+**Method 1: Hybrid (Default)**
 ```bash
-# Uses Guix for modern package management with rollback capabilities
+# Intelligently selects Guix vs individual roles per tool
+ansible-playbook user.yml --tags guix-tools,rust,rbw
+```
+
+**Method 2: Pure Guix**
+```bash
+# Uses Guix for all supported tools
+# Set tool_installation_method: 'guix' in group_vars/all.yml
 ansible-playbook user.yml --tags guix-tools
 ```
 
-**Method 2: Individual Ansible Roles**  
+**Method 3: Individual Roles**  
 ```bash
 # Uses traditional individual roles for each tool
-# First change tool_installation_method in group_vars/all.yml to 'individual'
+# Set tool_installation_method: 'individual' in group_vars/all.yml
 ansible-playbook user.yml --tags fzf,zoxide,rust,greenclip,rbw
 ```
 
@@ -74,10 +81,22 @@ ansible-playbook test-scantailor-advanced.yml
 
 ### Role Organization
 - **`base/`** - Fundamental system setup (apt packages)
-- **`sys/`** - System applications requiring root (browsers, desktop environments)
+- **`sys/`** - System applications requiring root (browsers, desktop environments)  
 - **`tools/`** - Development tools and CLI utilities (user-installable)
 - **`infra/`** - Infrastructure components (shell aliases, systemd timers)
 - **`helpers/`** - Reusable role components
+
+### Playbook Architecture
+- **`user.yml`** - User-space installations with conditional tool routing
+- **`root.yml`** - System-wide installations requiring sudo privileges
+- **`test-*.yml`** - Individual role testing playbooks
+- **Conditional Execution** - Roles include `when:` conditions for hybrid mode:
+  ```yaml
+  when: >
+    tool_installation_method == 'individual' or
+    (tool_installation_method == 'hybrid' and 
+     tool_installation_config.TOOL.method == 'individual')
+  ```
 
 ### Installation Patterns
 
@@ -100,10 +119,12 @@ ansible-playbook test-scantailor-advanced.yml
 
 ### Key Variables
 - **`github_token`** - Configured via environment variable or `~/.config/ansible/env` file to avoid rate limiting
+- **`tool_installation_method`** - Choose 'guix', 'individual', or 'hybrid' (default: 'hybrid')
+- **`tool_installation_config`** - Per-tool method selection in hybrid mode
+- **`guix_installation_method`** - Choose 'system' (APT), 'user' (latest), or 'hybrid' (default)
 - **`scantailor_*`** - Controls ScanTailor installation variants and shell aliases
 - **`user_home`** - Resolves to `{{ ansible_env.HOME }}`
 - **`user_bin`** - Points to `{{ ansible_env.HOME }}/.local/bin`
-- **`tool_installation_method`** - Choose between 'guix' or 'individual' for development tools (default: 'guix')
 
 ## Development Guidelines
 
@@ -166,17 +187,30 @@ echo "GITHUB_TOKEN=your_token_here" > ~/.config/ansible/env
   when: scantailor_install_compiled
 ```
 
-### GitHub Installation Example
+### GitHub Installation Helper
+The `helpers/github_install` role provides standardized GitHub release installation:
+
 ```yaml
 - name: Install tool via GitHub
   include_role:
     name: helpers/github_install
   vars:
-    name: "toolname"
-    repo: "author/repo"
-    asset_regex: "linux.*amd64.*tar.gz$"
-    bin_relpath: "bin/toolname"
+    name: "toolname"                    # Binary name in ~/.local/bin
+    repo: "author/repo"                 # GitHub repository
+    asset_regex: "linux.*amd64.*tar.gz$"  # Asset selection regex
+    bin_relpath: "bin/toolname"         # Path within archive to binary
+    # Optional parameters:
+    install_dir: "custom/path"          # Override default ~/.local/opt/<name>
+    skip_symlink: false                 # Skip creating ~/.local/bin symlink
+    extra_unarchive_opts: ["--strip-components=1"]  # Additional tar options
 ```
+
+**Key Features:**
+- Automatic version detection and latest release fetching
+- GitHub token support to avoid rate limiting
+- Automatic version pruning (keeps only current version)  
+- Handles both archives and single binaries
+- Creates versioned installations in `~/.local/opt/<tool>/<version>`
 
 ### XDG Directory Setup
 ```yaml
@@ -191,34 +225,35 @@ echo "GITHUB_TOKEN=your_token_here" > ~/.config/ansible/env
     - "{{ user_home }}/.config"
 ```
 
-## Current Work Status (2025-08-16)
+## Tool Installation Architecture
 
-### mu Role Migration (IN PROGRESS)
-**Status**: Converting tools/mu role from autotools to meson build system
+### Hybrid Installation Strategy
+The repository uses a sophisticated hybrid approach for tool installation that can be configured via `tool_installation_method` in `group_vars/all.yml`:
 
-**What's been completed:**
-- ✅ Updated dependencies from autotools to meson/ninja in `defaults/main.yml`
-- ✅ Converted build process from autoconf/make to meson/ninja in `install_source.yml`
-- ✅ Fixed download task to check for `meson.build` instead of `configure.ac`
-- ✅ Verified meson setup works correctly
+- **`guix`** - All tools via GNU Guix package manager
+- **`individual`** - All tools via dedicated Ansible roles  
+- **`hybrid`** (default) - Per-tool selection based on complexity and configuration needs
 
-**Current issue:**
-- Install step fails with permission error: meson tries to install Guile extension to `/usr/lib` instead of `~/.local`
-- Error: `PermissionError: [Errno 13] Permission denied: '/usr/lib/x86_64-linux-gnu/guile/3.0/extensions/libguile-mu.so'`
+### Per-Tool Configuration (Hybrid Mode)
+Tools with complex configurations use individual roles, while simple binaries use Guix:
 
-**Solution to implement:**
-- Disable Guile during build with `-Dguile=disabled` flag in meson setup
-- Guile provides optional Scheme scripting bindings, not core functionality
-- Core mu features (indexing, searching, mu4e) work without Guile
+```yaml
+tool_installation_config:
+  # Complex tools → individual roles
+  zoxide: { method: "individual", reason: "Shell integration and profile management" }
+  rust: { method: "individual", reason: "XDG compliance, cargo config" }
+  rbw: { method: "individual", reason: "Bitwarden config, rofi integration" }
+  
+  # Simple tools → Guix
+  fzf: { method: "guix", reason: "Simple binary, no config needed" }
+  mu: { method: "guix", reason: "Avoid compilation issues" }
+```
 
-**Next steps:**
-1. Add `-Dguile=disabled` to meson setup command in `roles/tools/mu/tasks/install_source.yml:73`
-2. Clean existing build: `rm -rf ~/.local/src/mu/build`  
-3. Test the updated role: `ansible-playbook -i inventory user.yml --tags mu`
-
-**Files modified:**
-- `roles/tools/mu/defaults/main.yml` - Updated build dependencies
-- `roles/tools/mu/tasks/install_source.yml` - Converted to meson build system
+### Guix Integration Benefits
+- **Rollback capability** - `guix package --roll-back`
+- **Reproducible environments** - Functional package management
+- **No compilation** - Pre-built binaries for complex tools like `mu`
+- **Version isolation** - Multiple versions can coexist
 
 ## Troubleshooting
 
@@ -233,3 +268,35 @@ If installed tools aren't found, verify `~/.local/bin` is in PATH and restart sh
 
 ### Permission Issues
 System roles require `-K` flag for sudo password. User roles should never need sudo.
+
+## Testing & Debugging
+
+### Individual Role Testing
+```bash
+# Test specific roles in isolation
+ansible-playbook test-scantailor-advanced.yml
+ansible-playbook test-claude-code.yml
+
+# Test with increased verbosity
+ansible-playbook user.yml --tags fzf -vv
+```
+
+### Tag Discovery
+```bash
+# List all available tags
+ansible-playbook user.yml --list-tags
+ansible-playbook root.yml --list-tags
+
+# Find tags in codebase
+grep -r "tags:" roles/ --include="*.yml" | grep -v "# tags"
+```
+
+### Configuration Validation
+```bash
+# Validate playbook syntax
+ansible-playbook user.yml --syntax-check
+ansible-playbook root.yml --syntax-check
+
+# Check variables and facts
+ansible localhost -m setup | grep ansible_env
+```
