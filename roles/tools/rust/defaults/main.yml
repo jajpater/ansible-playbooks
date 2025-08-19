@@ -12,7 +12,7 @@ rust_update_shell_profiles: true
 # Shell profile files to update (add more as needed)
 rust_shell_profiles:
   - "{{ ansible_env.HOME }}/.bashrc"
-  - "{{ ansible_env.HOME }}/.zshrc"
+  - "{{ ansible_env.HOME }}/.config/zsh/.zshrc"
 
 # Whether to update Rust toolchain during role execution
 rust_update_toolchain: false

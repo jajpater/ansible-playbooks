@@ -83,7 +83,7 @@
       fi
   loop:
     - "{{ ansible_env.HOME }}/.bashrc"
-    - "{{ ansible_env.HOME }}/.zshrc"
+    - "{{ ansible_env.HOME }}/.config/zsh/.zshrc"
   when: 
     - scantailor_aliases_enabled
     - scantailor_appimage_check.stat.exists

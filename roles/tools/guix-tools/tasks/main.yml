@@ -129,7 +129,7 @@
 
 - name: Configure Guix profile in zsh
   blockinfile:
-    path: "{{ ansible_env.HOME }}/.zshrc"
+    path: "{{ ansible_env.HOME }}/.config/zsh/.zshrc"
     marker: "# {mark} ANSIBLE MANAGED BLOCK - Guix Environment"
     block: |
       # Guix package manager setup
