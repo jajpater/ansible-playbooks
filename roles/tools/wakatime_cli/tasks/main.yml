@@ -22,6 +22,7 @@
     paths: "{{ version_dir }}"
     file_type: file
     patterns: "wakatime-cli*"
+    excludes: "*.zip"
     use_regex: false
   register: wak_find
 

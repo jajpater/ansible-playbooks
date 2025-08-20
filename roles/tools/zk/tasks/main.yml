@@ -1,0 +1,122 @@
+---
+- name: Install zk via GitHub helper
+  include_role:
+    name: helpers/github_install
+  vars:
+    name: "zk"
+    repo: "zk-org/zk"
+    asset_regex: "zk_.*_linux_amd64\\.tar\\.gz$"
+    bin_relpath: "zk"
+  tags: [zk]
+
+- name: Create XDG-compliant directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ zk_config_dir }}"
+    - "{{ zk_data_dir }}"
+    - "{{ zk_default_notebook_dir }}"
+  tags: [zk, xdg]
+
+- name: Check if zk config exists
+  stat:
+    path: "{{ zk_config_file }}"
+  register: zk_config_stat
+  tags: [zk, config]
+
+- name: Create zk configuration
+  template:
+    src: config.toml.j2
+    dest: "{{ zk_config_file }}"
+    mode: '0644'
+  when: not zk_config_stat.stat.exists
+  tags: [zk, config]
+
+- name: Initialize default notebook if it doesn't exist
+  stat:
+    path: "{{ zk_default_notebook_dir }}/.zk"
+  register: zk_notebook_stat
+  tags: [zk, notebook]
+
+- name: Initialize default zk notebook
+  command: zk init "{{ zk_default_notebook_dir }}"
+  when: not zk_notebook_stat.stat.exists
+  environment:
+    PATH: "{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH }}"
+  tags: [zk, notebook]
+
+- name: Create notebook templates directory
+  file:
+    path: "{{ zk_default_notebook_dir }}/.zk/templates"
+    state: directory
+    mode: '0755'
+  when: not zk_notebook_stat.stat.exists
+  tags: [zk, notebook]
+
+- name: Copy note templates to notebook
+  template:
+    src: "{{ item }}.j2"
+    dest: "{{ zk_default_notebook_dir }}/.zk/templates/{{ item }}"
+    mode: '0644'
+  loop:
+    - "default.md"
+    - "daily.md"
+    - "weekly.md"
+    - "project.md"
+  when: not zk_notebook_stat.stat.exists
+  tags: [zk, notebook]
+
+- name: Create shell aliases for zk
+  lineinfile:
+    path: "{{ item }}"
+    line: |
+      # zk note-taking aliases
+      alias zkn='zk new --title'
+      alias zkl='zk list'
+      alias zke='zk edit --interactive'
+      alias zkf='zk list --interactive'
+      alias zkd='cd "{{ zk_default_notebook_dir }}"'
+    regexp: "^# zk note-taking aliases"
+    create: true
+    mode: '0644'
+  loop: "{{ zk_shell_profiles }}"
+  when: zk_setup_aliases
+  tags: [zk, aliases]
+
+- name: Verify zk installation
+  command: zk --version
+  register: zk_verify_result
+  changed_when: false
+  failed_when: false
+  environment:
+    PATH: "{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH }}"
+  when: zk_verify_installation
+  tags: [zk, verify]
+
+- name: Display installation summary
+  debug:
+    msg: |
+      ✅ zk installation completed!
+      
+      📍 Installation Details:
+      • Binary: {{ ansible_env.HOME }}/.local/bin/zk
+      • Config: {{ zk_config_file }}
+      • Default notebook: {{ zk_default_notebook_dir }}
+      
+      🔧 Available Commands:
+      • zk new --title "Note Title"    (create new note)
+      • zk list                        (list all notes)
+      • zk edit --interactive          (interactive note editing)
+      • zk list --interactive          (interactive note selection)
+      
+      🚀 Quick Start:
+      1. Navigate to notebook: zkd
+      2. Create a new note: zkn "My First Note"
+      3. List notes: zkl
+      4. Interactive editing: zke
+      
+      📖 Documentation: https://zk-org.github.io/zk/
+  when: zk_verify_result.rc == 0 or not zk_verify_installation
+  tags: [zk, verify]

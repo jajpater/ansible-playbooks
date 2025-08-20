@@ -1,0 +1,71 @@
+# zk configuration file
+# Documentation: https://zk-org.github.io/zk/config/
+
+# Default notebook settings
+[notebook]
+dir = "{{ zk_default_notebook_dir }}"
+
+# Note creation rules
+[note]
+language = "nl"
+default-title = "Untitled"
+filename = "{{format-date now}}-{{id}}-{{slug title}}"
+extension = "{{ zk_note_extension }}"
+template = "{{ zk_default_template }}.md"
+id-charset = "{{ zk_note_id_charset }}"
+id-length = {{ zk_note_id_length }}
+id-case = "{{ zk_note_filename_case }}"
+
+# External tools configuration
+[tool]
+editor = "{{ zk_default_editor }}"
+shell = "{{ zk_default_shell }}"
+pager = "less -FIRX"
+fzf-preview = "bat -p --color always {1}"
+
+# Note formatting settings
+[format]
+markdown.hashtags = true
+markdown.colon-tags = true
+markdown.multiword-tags = false
+
+# LSP (Language Server Protocol) settings for editor integration
+[lsp]
+{% if zk_lsp_enabled %}
+completion = {{ zk_lsp_completion | lower }}
+diagnostics = {{ zk_lsp_diagnostics | lower }}
+{% else %}
+completion = false
+diagnostics = false
+{% endif %}
+
+# Custom note groups
+[group.daily]
+paths = ["dagboek"]
+note.filename = "{{format-date now '%Y-%m-%d'}}.md"
+note.template = "daily.md"
+
+[group.weekly]
+paths = ["wekelijks"]
+note.filename = "{{format-date now '%Y-W%V'}}.md"
+note.template = "weekly.md"
+
+[group.project]
+paths = ["projecten"]
+note.template = "project.md"
+
+# Named filters for common searches
+[filter]
+recents = "--sort created- --created-after 'last two weeks'"
+journal = "--sort created- journal"
+unlinked = "--orphan --no-input"
+
+# Command aliases
+[alias]
+ls = "zk list $@"
+n = "zk new --title $@"
+e = "zk edit --interactive $@"
+f = "zk list --interactive $@"
+recent = "zk list --sort created- --created-after 'last two weeks'"
+daily = "zk new --group daily"
+weekly = "zk new --group weekly"

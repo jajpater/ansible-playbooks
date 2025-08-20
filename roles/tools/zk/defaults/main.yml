@@ -1,0 +1,46 @@
+---
+# zk note-taking tool configuration defaults
+
+# XDG-compliant directories
+zk_config_dir: "{{ ansible_env.HOME }}/.config/zk"
+zk_data_dir: "{{ ansible_env.HOME }}/.local/share/zk"
+zk_config_file: "{{ zk_config_dir }}/config.toml"
+
+# Default notebook location
+zk_default_notebook_dir: "{{ ansible_env.HOME }}/Documenten/Aantekeningen/zk-default-notebook"
+
+# Editor and shell preferences
+zk_default_editor: "vim"
+zk_default_shell: "zsh"
+
+# Template directories and settings
+zk_templates_dir: "{{ zk_default_notebook_dir }}/.zk/templates"
+
+# Shell integration
+zk_setup_aliases: true
+zk_shell_profiles:
+  - "{{ ansible_env.HOME }}/.bashrc"
+  - "{{ ansible_env.HOME }}/.config/zsh/.zshrc"
+
+# Installation verification
+zk_verify_installation: true
+
+# Note formatting preferences
+zk_note_filename_case: "lower"
+zk_note_id_charset: "alphanum"
+zk_note_id_length: 4
+zk_note_extension: "md"
+
+# Default note template settings
+zk_default_template: "default"
+zk_use_created_date: true
+zk_use_modified_date: true
+
+# Search and filtering defaults
+zk_default_sort: "modified"
+zk_interactive_filter: true
+
+# LSP server settings (for editor integration)
+zk_lsp_enabled: true
+zk_lsp_completion: true
+zk_lsp_diagnostics: true
