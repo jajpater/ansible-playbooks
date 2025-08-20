@@ -1,0 +1,18 @@
+#!/bin/bash
+# LanguageTool command-line launcher script
+# XDG Base Directory Specification compliant
+
+# Set environment variables
+export LANGUAGETOOL_HOME="{{ languagetool_extract_dir }}"
+export LANGUAGETOOL_CONFIG="{{ languagetool_config_dir }}"
+export LANGUAGETOOL_CACHE="{{ languagetool_cache_dir }}"
+export LANGUAGETOOL_DATA="{{ languagetool_data_dir }}"
+
+# Java options
+export JAVA_OPTS="{{ languagetool_java_opts }}"
+
+# Ensure directories exist
+mkdir -p "$LANGUAGETOOL_CONFIG" "$LANGUAGETOOL_CACHE" "$LANGUAGETOOL_DATA"
+
+# Run LanguageTool command-line
+exec java $JAVA_OPTS -jar "$LANGUAGETOOL_HOME/languagetool-commandline.jar" "$@"

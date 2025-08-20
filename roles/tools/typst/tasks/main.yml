@@ -11,7 +11,7 @@
   vars:
     name: "typst"
     repo: "typst/typst"
-    asset_regex: "typst-(x86_64|aarch64)-unknown-linux-musl\\.tar\\.xz$"
+    asset_regex: "typst-{{ typst_arch | trim }}-unknown-linux-musl\\.tar\\.xz$"
     # archive contains directory typst-<arch>-unknown-linux-musl/typst
     bin_relpath: "typst-{{ typst_arch | trim }}-unknown-linux-musl/typst"
   tags: [typst]

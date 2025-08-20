@@ -1,0 +1,26 @@
+---
+- name: Test LanguageTool role
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  become: false
+
+  vars:
+    user_home: "{{ ansible_env.HOME }}"
+    user_bin: "{{ ansible_env.HOME }}/.local/bin"
+
+  pre_tasks:
+    - name: Ensure XDG dirs
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - "{{ user_bin }}"
+        - "{{ user_home }}/.local/share"
+        - "{{ user_home }}/.config"
+        - "{{ user_home }}/.cache"
+
+  roles:
+    - role: tools/languagetool
+      tags: [languagetool, grammar, writing, proofreading]

@@ -91,6 +91,9 @@
     - role: tools/claude-code
       tags: [claude-code, tools]
 
+    - role: tools/languagetool
+      tags: [languagetool, grammar, writing, proofreading]
+
     - role: tools/gdu
       tags: [gdu, disk-usage, analyzer]
 

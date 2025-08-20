@@ -1,0 +1,33 @@
+#!/bin/bash
+# LanguageTool server launcher script
+# XDG Base Directory Specification compliant
+
+# Set environment variables
+export LANGUAGETOOL_HOME="{{ languagetool_extract_dir }}"
+export LANGUAGETOOL_CONFIG="{{ languagetool_config_dir }}"
+export LANGUAGETOOL_CACHE="{{ languagetool_cache_dir }}"
+export LANGUAGETOOL_DATA="{{ languagetool_data_dir }}"
+
+# Java options
+export JAVA_OPTS="{{ languagetool_java_opts }}"
+
+# Ensure directories exist
+mkdir -p "$LANGUAGETOOL_CONFIG" "$LANGUAGETOOL_CACHE" "$LANGUAGETOOL_DATA"
+
+# Configuration file
+CONFIG_FILE="{{ languagetool_server_config_file }}"
+
+echo "Starting LanguageTool server..."
+echo "Port: {{ languagetool_server_port }}"
+echo "Config: $CONFIG_FILE"
+echo "Access: http://localhost:{{ languagetool_server_port }}"
+echo ""
+echo "Stop with Ctrl+C"
+echo ""
+
+# Run LanguageTool server
+if [ -f "$CONFIG_FILE" ]; then
+    exec java $JAVA_OPTS -cp "$LANGUAGETOOL_HOME/languagetool-server.jar" org.languagetool.server.HTTPServer --config "$CONFIG_FILE" "$@"
+else
+    exec java $JAVA_OPTS -cp "$LANGUAGETOOL_HOME/languagetool-server.jar" org.languagetool.server.HTTPServer --port {{ languagetool_server_port }} "$@"
+fi

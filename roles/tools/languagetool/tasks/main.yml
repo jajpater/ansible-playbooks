@@ -1,0 +1,300 @@
+---
+- name: Check for required system packages
+  block:
+    - name: Check if Java is installed
+      command: java -version
+      register: languagetool_java_check
+      changed_when: false
+      failed_when: false
+      tags: [languagetool, dependencies]
+
+    - name: Check if required packages are installed
+      command: dpkg -l {{ item }}
+      register: languagetool_package_check
+      changed_when: false
+      failed_when: false
+      loop:
+        - curl
+        - wget
+        - unzip
+      tags: [languagetool, dependencies]
+
+    - name: Warn about missing Java
+      debug:
+        msg: |
+          WARNING: Java is not installed or not in PATH.
+          LanguageTool requires Java 8 or higher.
+          Java should be installed via the base/apt_basics role.
+          If Java was just installed, you may need to restart your shell.
+      when: languagetool_java_check.rc != 0
+      tags: [languagetool, dependencies]
+
+    - name: Warn about missing system packages
+      debug:
+        msg: |
+          WARNING: Package {{ item.item }} is not installed.
+          Required packages should be installed via the base/apt_basics role.
+      when: item.rc != 0
+      loop: "{{ languagetool_package_check.results }}"
+      tags: [languagetool, dependencies]
+
+- name: Create XDG-compliant directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ languagetool_install_dir }}"
+    - "{{ languagetool_config_dir }}"
+    - "{{ languagetool_cache_dir }}"
+    - "{{ languagetool_data_dir }}"
+    - "{{ languagetool_user_bin_dir }}"
+  when: languagetool_create_xdg_dirs
+  tags: [languagetool, xdg]
+
+- name: Get latest LanguageTool version from website
+  uri:
+    url: "{{ languagetool_download_url_base }}/LanguageTool-stable.zip"
+    method: HEAD
+    follow_redirects: all
+  register: languagetool_latest_check
+  when: languagetool_version == "latest"
+  failed_when: false
+  tags: [languagetool]
+
+- name: Set LanguageTool version facts
+  set_fact:
+    languagetool_target_version: >-
+      {{ languagetool_specific_version if languagetool_version == 'latest' 
+         else languagetool_version }}
+  tags: [languagetool]
+
+- name: Check current LanguageTool version
+  shell: |
+    if [ -f "{{ languagetool_user_bin_dir }}/languagetool" ]; then
+      java -jar "{{ languagetool_install_dir }}/current/languagetool-commandline.jar" --version 2>/dev/null || echo "unknown"
+    else
+      echo "not_installed"
+    fi
+  register: languagetool_current_version
+  changed_when: false
+  failed_when: false
+  tags: [languagetool]
+
+- name: Determine if LanguageTool update is needed
+  set_fact:
+    languagetool_needs_install: >-
+      {{ 'not_installed' in languagetool_current_version.stdout or 
+         languagetool_force_update or 
+         (languagetool_target_version not in languagetool_current_version.stdout and
+          languagetool_current_version.stdout != 'unknown') }}
+  tags: [languagetool]
+
+- name: Display current status
+  debug:
+    msg: |
+      Current LanguageTool: {{ 'Not installed' if 'not_installed' in languagetool_current_version.stdout else languagetool_current_version.stdout.strip() }}
+      Target LanguageTool version: {{ languagetool_target_version }}
+      Action: {{ 'Install/Update' if languagetool_needs_install else 'Skip (already installed)' }}
+  tags: [languagetool]
+
+- name: Download and install LanguageTool
+  when: languagetool_needs_install and languagetool_java_check.rc == 0
+  block:
+    - name: Set LanguageTool download URL
+      set_fact:
+        languagetool_download_url: "{{ languagetool_download_url_base }}/LanguageTool-{{ languagetool_target_version }}.zip"
+      tags: [languagetool]
+
+    - name: Create temporary directory for download
+      tempfile:
+        state: directory
+        prefix: "languagetool_install_"
+      register: languagetool_temp_dir
+      tags: [languagetool]
+
+    - name: Download LanguageTool archive
+      get_url:
+        url: "{{ languagetool_download_url }}"
+        dest: "{{ languagetool_temp_dir.path }}/languagetool.zip"
+        mode: '0644'
+        timeout: 600
+      when: languagetool_temp_dir is defined and languagetool_temp_dir.path is defined
+      tags: [languagetool]
+
+    - name: Remove existing LanguageTool installation
+      file:
+        path: "{{ languagetool_extract_dir }}"
+        state: absent
+      tags: [languagetool]
+
+    - name: Ensure LanguageTool installation directory exists
+      file:
+        path: "{{ languagetool_install_dir }}"
+        state: directory
+        mode: '0755'
+      tags: [languagetool]
+
+    - name: Extract LanguageTool archive
+      unarchive:
+        src: "{{ languagetool_temp_dir.path }}/languagetool.zip"
+        dest: "{{ languagetool_install_dir }}"
+        remote_src: true
+        creates: "{{ languagetool_install_dir }}/LanguageTool-{{ languagetool_target_version }}"
+      when: languagetool_temp_dir is defined and languagetool_temp_dir.path is defined
+      tags: [languagetool]
+
+    - name: Create current symlink
+      file:
+        src: "{{ languagetool_install_dir }}/LanguageTool-{{ languagetool_target_version }}"
+        dest: "{{ languagetool_extract_dir }}"
+        state: link
+        force: true
+      tags: [languagetool]
+
+    - name: Cleanup temporary directory
+      file:
+        path: "{{ languagetool_temp_dir.path }}"
+        state: absent
+      when: 
+        - not languagetool_keep_archive
+        - languagetool_temp_dir is defined and languagetool_temp_dir.path is defined
+      tags: [languagetool]
+
+- name: Create LanguageTool launcher scripts
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: '0755'
+  loop:
+    - { src: "languagetool.j2", dest: "{{ languagetool_user_bin_dir }}/languagetool" }
+    - { src: "languagetool-server.j2", dest: "{{ languagetool_user_bin_dir }}/languagetool-server" }
+    - { src: "languagetool-gui.j2", dest: "{{ languagetool_user_bin_dir }}/languagetool-gui" }
+  when: languagetool_java_check.rc == 0
+  tags: [languagetool, scripts]
+
+- name: Setup LanguageTool environment configuration in shell files
+  lineinfile:
+    path: "{{ item }}"
+    line: |
+      # LanguageTool XDG-compliant environment configuration
+      export LANGUAGETOOL_HOME="{{ languagetool_extract_dir }}"
+      export LANGUAGETOOL_CONFIG="{{ languagetool_config_dir }}"
+      export LANGUAGETOOL_CACHE="{{ languagetool_cache_dir }}"
+      export LANGUAGETOOL_DATA="{{ languagetool_data_dir }}"
+      export JAVA_OPTS="{{ languagetool_java_opts }}"
+    regexp: "^# LanguageTool XDG-compliant environment configuration"
+    create: true
+    mode: '0644'
+  loop: "{{ languagetool_shell_profiles }}"
+  when: languagetool_setup_path
+  tags: [languagetool, path]
+
+- name: Create LanguageTool aliases
+  lineinfile:
+    path: "{{ item }}"
+    line: |
+      # LanguageTool aliases
+      alias lt='languagetool'
+      alias languagetool-check='languagetool --language {{ languagetool_default_language }}'
+      alias lt-server='languagetool-server'
+      alias lt-gui='languagetool-gui'
+    regexp: "^# LanguageTool aliases"
+    create: true
+    mode: '0644'
+  loop:
+    - "{{ ansible_env.HOME }}/.bashrc"
+    - "{{ ansible_env.HOME }}/.config/zsh/.zshrc"
+  when: languagetool_setup_aliases
+  tags: [languagetool, aliases]
+
+- name: Create desktop entry for LanguageTool GUI
+  copy:
+    content: |
+      [Desktop Entry]
+      Name=LanguageTool
+      Comment=Grammar and style checker for multiple languages
+      Exec={{ languagetool_user_bin_dir }}/languagetool-gui
+      Terminal=false
+      Type=Application
+      Icon=accessories-text-editor
+      Keywords=grammar;spell;check;writing;language;proofreading;
+      Categories=Office;Education;
+      StartupNotify=true
+      MimeType=text/plain;application/rtf;
+    dest: "{{ ansible_env.HOME }}/.local/share/applications/languagetool.desktop"
+    mode: '0644'
+  when: languagetool_create_desktop_entry and languagetool_java_check.rc == 0
+  tags: [languagetool, desktop]
+
+- name: Create LanguageTool server configuration
+  copy:
+    content: |
+      # LanguageTool server configuration
+      port={{ languagetool_server_port }}
+      public=false
+      allow-origin=*
+      languageModel={{ languagetool_data_dir }}/ngrams
+      word2vecModel={{ languagetool_data_dir }}/word2vec
+      maxTextLength=50000
+      maxCheckTimeMillis=60000
+    dest: "{{ languagetool_server_config_file }}"
+    mode: '0644'
+  when: languagetool_java_check.rc == 0
+  tags: [languagetool, config]
+
+- name: Verify LanguageTool installation
+  command: "{{ languagetool_user_bin_dir }}/languagetool --version"
+  register: languagetool_verify_result
+  changed_when: false
+  failed_when: false
+  when: languagetool_verify_installation and languagetool_java_check.rc == 0
+  tags: [languagetool, verify]
+
+- name: Display installation verification
+  debug:
+    msg: |
+      ✅ LanguageTool installation {{ 'verified' if languagetool_verify_result.rc == 0 else 'completed (verification skipped)' }}!
+      
+      📍 Installation Details:
+      • LanguageTool Home: {{ languagetool_extract_dir }}/
+      • Configuration: {{ languagetool_config_dir }}/
+      • Cache: {{ languagetool_cache_dir }}/
+      • Data: {{ languagetool_data_dir }}/
+      
+      🔧 Available Commands:
+      • languagetool             (command-line interface)
+      • languagetool-server      (start server on port {{ languagetool_server_port }})
+      • languagetool-gui         (graphical interface)
+      • lt                       (short alias for languagetool)
+      • lt-server               (short alias for server)
+      • lt-gui                  (short alias for GUI)
+      
+      🚀 Quick Start:
+      1. Check a text file: languagetool --language {{ languagetool_default_language }} mytext.txt
+      2. Start GUI: languagetool-gui
+      3. Start server: languagetool-server
+      4. API endpoint: http://localhost:{{ languagetool_server_port }}/v2/check
+      
+      💡 Usage Examples:
+      • Echo text check: echo "This are wrong." | languagetool --language en-US -
+      • File check: languagetool --language en-US document.txt
+      • Server mode: curl -d "language=en-US&text=Hello world." http://localhost:{{ languagetool_server_port }}/v2/check
+      
+      📖 Documentation: https://languagetool.org/
+  when: languagetool_java_check.rc == 0
+  tags: [languagetool, verify]
+
+- name: Display Java requirement warning
+  debug:
+    msg: |
+      ⚠️  LanguageTool installation skipped - Java not found!
+      
+      📋 Requirements:
+      • Java 8 or higher is required
+      • Java should be installed via the base/apt_basics role
+      • If Java was just installed, restart your shell and re-run this role
+      
+      📖 More info: https://languagetool.org/download/
+  when: languagetool_java_check.rc != 0
+  tags: [languagetool]

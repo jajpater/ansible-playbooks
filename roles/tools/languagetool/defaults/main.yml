@@ -1,0 +1,63 @@
+---
+# LanguageTool installation and configuration defaults
+
+# LanguageTool version to install (use 'latest' for most recent stable release)
+languagetool_version: "latest"
+
+# Override for specific version (e.g., "6.6" if not using latest)
+languagetool_specific_version: "6.6"
+
+# Base download URL for LanguageTool releases
+languagetool_download_url_base: "https://languagetool.org/download"
+
+# XDG-compliant installation directories
+languagetool_install_dir: "{{ ansible_env.HOME }}/.local/share/languagetool"
+languagetool_config_dir: "{{ ansible_env.HOME }}/.config/languagetool"
+languagetool_cache_dir: "{{ ansible_env.HOME }}/.cache/languagetool"
+languagetool_data_dir: "{{ ansible_env.HOME }}/.local/share/languagetool/data"
+
+# Binary and script locations
+languagetool_bin_dir: "{{ languagetool_install_dir }}/bin"
+languagetool_user_bin_dir: "{{ ansible_env.HOME }}/.local/bin"
+
+# Whether to force update if already installed
+languagetool_force_update: false
+
+# Whether to create XDG directories
+languagetool_create_xdg_dirs: true
+
+# Whether to setup shell PATH configuration and aliases
+languagetool_setup_path: true
+languagetool_setup_aliases: true
+
+# Shell profile files to update
+languagetool_shell_profiles:
+  - "{{ ansible_env.HOME }}/.bashrc"
+  - "{{ ansible_env.HOME }}/.config/zsh/.zshrc"
+  - "{{ ansible_env.HOME }}/.profile"
+
+# Desktop integration
+languagetool_create_desktop_entry: true
+
+# Server configuration
+languagetool_server_port: 8081
+languagetool_server_config_file: "{{ languagetool_config_dir }}/server.properties"
+
+# GUI configuration
+languagetool_gui_config_file: "{{ languagetool_config_dir }}/gui.properties"
+
+# Java configuration
+languagetool_java_opts: "-Xmx1g -Dfile.encoding=UTF-8"
+
+# Default language for LanguageTool
+languagetool_default_language: "en-US"
+
+# Whether to start LanguageTool server automatically
+languagetool_auto_start_server: false
+
+# Whether to verify installation after setup
+languagetool_verify_installation: true
+
+# Archive extraction settings
+languagetool_extract_dir: "{{ languagetool_install_dir }}/current"
+languagetool_keep_archive: false

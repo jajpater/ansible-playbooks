@@ -24,6 +24,9 @@ apt_packages:
   - guix
   - hunspell-nl
   - icc-profiles-free
+  - default-jdk
+  - openjdk-11-jdk
+  - openjdk-11-jre
   - jq
   - liblept5
   - libffi-dev
@@ -61,6 +64,7 @@ apt_packages:
   - texinfo
   - ttf-mscorefonts-installer
   - unzip
+  - wget
   - xdotool
   - xiphos
   - xclip

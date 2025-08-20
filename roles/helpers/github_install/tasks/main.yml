@@ -80,6 +80,7 @@
     dest: "{{ ansible_env.HOME }}/.local/bin/{{ name }}"
     state: link
     force: true
+    follow: false
   when: not (skip_symlink | default(false) | bool)
 
 - name: Prune old versions (keep current)
