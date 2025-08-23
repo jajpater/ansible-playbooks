@@ -1,11 +1,10 @@
----
 - name: Install zk via GitHub helper
   include_role:
     name: helpers/github_install
   vars:
     name: "zk"
     repo: "zk-org/zk"
-    asset_regex: "zk_.*_linux_amd64\\.tar\\.gz$"
+    asset_regex: "zk-v.*-linux-amd64\\.tar\\.gz$"
     bin_relpath: "zk"
   tags: [zk]
 
@@ -40,11 +39,12 @@
   register: zk_notebook_stat
   tags: [zk, notebook]
 
-- name: Initialize default zk notebook
-  command: zk init "{{ zk_default_notebook_dir }}"
+- name: Create notebook .zk directory
+  file:
+    path: "{{ zk_default_notebook_dir }}/.zk"
+    state: directory
+    mode: '0755'
   when: not zk_notebook_stat.stat.exists
-  environment:
-    PATH: "{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH }}"
   tags: [zk, notebook]
 
 - name: Create notebook templates directory
@@ -55,9 +55,17 @@
   when: not zk_notebook_stat.stat.exists
   tags: [zk, notebook]
 
-- name: Copy note templates to notebook
+- name: Create notebook config file
   template:
-    src: "{{ item }}.j2"
+    src: notebook-config.toml.j2
+    dest: "{{ zk_default_notebook_dir }}/.zk/config.toml"
+    mode: '0644'
+  when: not zk_notebook_stat.stat.exists
+  tags: [zk, notebook]
+
+- name: Copy note templates to notebook
+  copy:
+    src: "templates/{{ item }}"
     dest: "{{ zk_default_notebook_dir }}/.zk/templates/{{ item }}"
     mode: '0644'
   loop:
@@ -69,16 +77,23 @@
   tags: [zk, notebook]
 
 - name: Create shell aliases for zk
-  lineinfile:
+  blockinfile:
     path: "{{ item }}"
-    line: |
-      # zk note-taking aliases
+    marker: "# {mark} zk note-taking aliases"
+    block: |
       alias zkn='zk new --title'
       alias zkl='zk list'
-      alias zke='zk edit --interactive'
+      alias zke='_zk_edit_interactive'
       alias zkf='zk list --interactive'
       alias zkd='cd "{{ zk_default_notebook_dir }}"'
-    regexp: "^# zk note-taking aliases"
+      
+      # Function for interactive editing
+      _zk_edit_interactive() {
+        local note=$(zk list --format "{{ '{{path}}' }}" --interactive)
+        if [ -n "$note" ]; then
+          zk edit "$note"
+        fi
+      }
     create: true
     mode: '0644'
   loop: "{{ zk_shell_profiles }}"

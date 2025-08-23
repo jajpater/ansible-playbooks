@@ -1,0 +1,6 @@
+;; Guix channels configuration for local repository
+;; This configures Guix to use the local repository clone instead of remote
+
+(list (channel
+        (name 'guix)
+        (url "file://{{ guix_local_repo }}")))

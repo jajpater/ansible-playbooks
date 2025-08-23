@@ -1,0 +1,37 @@
+---
+- name: Ensure fonts directory exists
+  file:
+    path: "{{ user_home }}/.local/share/fonts/microsoft-365"
+    state: directory
+    mode: "0755"
+
+- name: Check if Microsoft-365-Fonts repository exists
+  stat:
+    path: "{{ user_home }}/.local/src/Microsoft-365-Fonts"
+  register: ms_fonts_repo
+
+- name: Clone Microsoft-365-Fonts repository
+  git:
+    repo: https://github.com/pjobson/Microsoft-365-Fonts.git
+    dest: "{{ user_home }}/.local/src/Microsoft-365-Fonts"
+    update: false
+  when: not ms_fonts_repo.stat.exists
+
+- name: Find all font files in repository
+  find:
+    paths: "{{ user_home }}/.local/src/Microsoft-365-Fonts"
+    patterns: "*.ttf,*.otf,*.TTF,*.OTF"
+    recurse: true
+  register: found_fonts
+
+- name: Copy fonts to local fonts directory
+  copy:
+    src: "{{ item.path }}"
+    dest: "{{ user_home }}/.local/share/fonts/microsoft-365/{{ item.path | basename }}"
+    mode: "0644"
+  loop: "{{ found_fonts.files }}"
+  notify: update font cache
+
+- name: Update font cache
+  command: fc-cache -fv "{{ user_home }}/.local/share/fonts"
+  changed_when: false

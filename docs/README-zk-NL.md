@@ -122,7 +122,7 @@ zk new --group weekly
 
 Je standaard notebook bevindt zich in:
 ```
-~/Documenten/Aantekeningen/zk-default-notebook/
+~/Documents/Aantekeningen/zk-default-notebook/
 ├── .zk/
 │   ├── config.toml          # Notebook configuratie
 │   └── templates/           # Je templates
@@ -140,7 +140,7 @@ Het hoofdconfiguratiebestand staat in `~/.config/zk/config.toml`:
 ```toml
 # Standaard notebook
 [notebook]
-dir = "~/Documenten/Aantekeningen/zk-default-notebook"
+dir = "~/Documents/Aantekeningen/zk-default-notebook"
 
 # Notitie instellingen
 [note]
@@ -369,7 +369,7 @@ function zknt() {
 
 ```bash
 # Backup je volledige notebook
-tar -czf "notebook-backup-$(date +%Y%m%d).tar.gz" ~/Documenten/Aantekeningen/
+tar -czf "notebook-backup-$(date +%Y%m%d).tar.gz" ~/Documents/Aantekeningen/
 
 # Export naar andere formaten (met pandoc)
 zk list --format "{{path}}" | xargs -I {} pandoc {} -o {}.pdf
@@ -381,13 +381,13 @@ zk list --format "{{path}}" | xargs -I {} pandoc {} -o {}.pdf
 
 ```bash
 # Initialiseer git in je notebook
-cd ~/Documenten/Aantekeningen/zk-default-notebook
+cd ~/Documents/Aantekeningen/zk-default-notebook
 git init
 git add .
 git commit -m "Initial notebook setup"
 
 # Dagelijkse backup
-alias zkbackup='cd ~/Documenten/Aantekeningen/zk-default-notebook && git add . && git commit -m "Daily backup $(date)"'
+alias zkbackup='cd ~/Documents/Aantekeningen/zk-default-notebook && git add . && git commit -m "Daily backup $(date)"'
 ```
 
 ### Met fzf

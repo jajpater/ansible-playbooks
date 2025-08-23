@@ -7,7 +7,7 @@ zk_data_dir: "{{ ansible_env.HOME }}/.local/share/zk"
 zk_config_file: "{{ zk_config_dir }}/config.toml"
 
 # Default notebook location
-zk_default_notebook_dir: "{{ ansible_env.HOME }}/Documenten/Aantekeningen/zk-default-notebook"
+zk_default_notebook_dir: "{{ ansible_env.HOME }}/Documents/Aantekeningen/zk-default-notebook"
 
 # Editor and shell preferences
 zk_default_editor: "vim"

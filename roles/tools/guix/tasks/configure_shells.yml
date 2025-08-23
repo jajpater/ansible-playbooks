@@ -1,0 +1,38 @@
+---
+- name: Configure PATH and profile for zshrc
+  blockinfile:
+    path: "{{ ansible_env.HOME }}/.zshrc"
+    create: true
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - Guix user configuration"
+    block: |
+      # User-level Guix configuration
+      export PATH="{{ guix_current_dir }}/bin:$PATH"
+      if [ -f "{{ guix_current_dir }}/etc/profile" ]; then
+        . "{{ guix_current_dir }}/etc/profile"
+      fi
+      hash -r
+  when: ansible_env.SHELL is defined and '/zsh' in ansible_env.SHELL
+
+- name: Configure PATH and profile for bashrc
+  blockinfile:
+    path: "{{ ansible_env.HOME }}/.bashrc"
+    create: true
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - Guix user configuration"
+    block: |
+      # User-level Guix configuration
+      export PATH="{{ guix_current_dir }}/bin:$PATH"
+      if [ -f "{{ guix_current_dir }}/etc/profile" ]; then
+        . "{{ guix_current_dir }}/etc/profile"
+      fi
+      hash -r
+
+- name: Check current shell and provide configuration instructions
+  debug:
+    msg: |
+      Guix PATH configuration added to shell RC files.
+      Current shell: {{ ansible_env.SHELL | default('unknown') }}
+      
+      To use the new Guix installation immediately, run:
+      export PATH="{{ guix_current_dir }}/bin:$PATH"
+      . "{{ guix_current_dir }}/etc/profile"
+      hash -r

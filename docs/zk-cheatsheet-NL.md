@@ -8,7 +8,7 @@ ansible-playbook user.yml --tags zk
 
 # Naar notebook navigeren
 zkd
-cd ~/Documenten/Aantekeningen/zk-default-notebook
+cd ~/Documents/Aantekeningen/zk-default-notebook
 
 # Eerste notitie maken
 zkn "Mijn eerste notitie"
@@ -124,7 +124,7 @@ zkn "Mijn eerste notitie"
 | `zkl` | `zk list` | Lijst notities |
 | `zke` | `zk edit --interactive` | Bewerk interactief |
 | `zkf` | `zk list --interactive` | Zoek interactief |
-| `zkd` | `cd ~/Documenten/...` | Ga naar notebook |
+| `zkd` | `cd ~/Documents/...` | Ga naar notebook |
 
 ---
 
@@ -136,10 +136,10 @@ zkn "Mijn eerste notitie"
 ~/.config/zk/config.toml
 
 # Notebook config  
-~/Documenten/Aantekeningen/zk-default-notebook/.zk/config.toml
+~/Documents/Aantekeningen/zk-default-notebook/.zk/config.toml
 
 # Templates
-~/Documenten/Aantekeningen/zk-default-notebook/.zk/templates/
+~/Documents/Aantekeningen/zk-default-notebook/.zk/templates/
 ```
 
 ### Config Shortcuts

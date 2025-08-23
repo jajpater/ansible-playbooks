@@ -1,6 +1,6 @@
-# Weekoverzicht - Week {{format-date now '%V, %Y'}}
+# Weekoverzicht - Week {% raw %}{{format-date now '%V, %Y'}}{% endraw %}
 
-## Deze week ({{format-date now '%d %B'}} - {{format-date (date-add now "6 days") '%d %B %Y'}})
+## Deze week ({% raw %}{{format-date now '%d %B'}}{% endraw %} - {% raw %}{{format-date (date-add now "6 days") '%d %B %Y'}}{% endraw %})
 
 ## Doelen van deze week
 
@@ -37,4 +37,4 @@
 
 ---
 
-#wekelijks #week-{{format-date now '%V-%Y'}}
+#wekelijks #week-{% raw %}{{format-date now '%V-%Y'}}{% endraw %}

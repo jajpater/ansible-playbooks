@@ -155,16 +155,22 @@
     state: link
     force: true
 
-- name: Ensure ~/.config/zsh exists (for PATH snippet)
+- name: Ensure ~/.config/zsh/rc exists (for PATH snippet)
   file:
-    path: "{{ user_home }}/.config/zsh"
+    path: "{{ user_home }}/.config/zsh/rc"
     state: directory
     mode: "0755"
   when: texlive_write_profile_snippet | bool
 
+- name: Remove old texlive.zsh (incorrect location)
+  file:
+    path: "{{ user_home }}/.config/zsh/texlive.zsh"
+    state: absent
+  when: texlive_write_profile_snippet | bool
+
 - name: Write zsh PATH snippet (uses 'current' symlink)
   copy:
-    dest: "{{ user_home }}/.config/zsh/texlive.zsh"
+    dest: "{{ user_home }}/.config/zsh/rc/15-texlive.zsh"
     mode: "0644"
     content: |
       # TeX Live (installed by Ansible)

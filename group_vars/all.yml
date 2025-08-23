@@ -55,8 +55,8 @@ tool_installation_config:
     reason: "Simple binary installation, no complex configuration needed"
     
   greenclip:
-    method: "guix"
-    reason: "Simple binary installation, no complex configuration needed"
+    method: "individual"
+    reason: "GitHub installation for latest version control"
     
   mu:
     method: "guix"

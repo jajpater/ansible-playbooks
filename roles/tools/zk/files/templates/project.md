@@ -1,9 +1,9 @@
-# Project: {% raw %}{{title}}{% endraw %}
+# Project: {{title}}
 
 ## Projectoverzicht
 
 **Status:** 🟡 In ontwikkeling  
-**Startdatum:** {% raw %}{{format-date now}}{% endraw %}  
+**Startdatum:** {{format-date now}}  
 **Deadline:**   
 **Prioriteit:** Gemiddeld  
 
@@ -54,4 +54,4 @@
 
 ---
 
-#project #{% raw %}{{slug title}}{% endraw %}
+#project #{{slug title}}

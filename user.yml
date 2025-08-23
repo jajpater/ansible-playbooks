@@ -24,6 +24,9 @@
     - role: tools/source_code_pro
       tags: [source-code-pro]
 
+    - role: tools/microsoft-365-fonts
+      tags: [microsoft-365-fonts, fonts]
+
     # Individual tool roles (per-tool configuration)
     - role: tools/greenclip
       tags: [greenclip]
@@ -99,6 +102,9 @@
 
     - role: tools/atuin
       tags: [atuin, shell, history]
+
+    - role: tools/zk
+      tags: [zk, notes, notebook, zettelkasten]
 
     - role: tools/github_script
       vars:

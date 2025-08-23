@@ -1,101 +1,98 @@
 ---
-- name: Ensure XDG directories exist
+- name: Ensure required directories exist
   file:
     path: "{{ item }}"
     state: directory
     mode: "0755"
   loop:
-    - "{{ guix_config_dir }}"
-    - "{{ guix_cache_dir }}"
-    - "{{ guix_data_dir }}"
-    - "{{ ansible_env.HOME }}/.local/bin"
     - "{{ ansible_env.HOME }}/.local/src"
+    - "{{ ansible_env.HOME }}/.config/guix"
+    - "{{ ansible_env.HOME }}/.local/bin"
+  when: install_user_guix or guix_installation_method == 'user'
 
-- name: Check if user Guix is already installed
+- name: Check if user Guix is already bootstrapped
   stat:
-    path: "{{ guix_profile_dir }}/bin/guix"
-  register: guix_user_installed
+    path: "{{ guix_current_bin }}"
+  register: guix_user_current
+  when: install_user_guix or guix_installation_method == 'user'
 
-- name: Debug Guix installation check
+- name: Debug Guix bootstrap check
   debug:
     msg: |
-      User Guix installation check:
-      - User profile path: {{ guix_profile_dir }}/bin/guix
-      - User profile exists: {{ guix_user_installed.stat.exists }}
-      - Installation method: {{ guix_install_method }}
+      User Guix bootstrap check:
+      - Current Guix path: {{ guix_current_bin }}
+      - User Guix exists: {{ guix_user_current.stat.exists }}
+      - Local repo path: {{ guix_local_repo }}
+  when: install_user_guix or guix_installation_method == 'user'
 
-- name: Install Guix for user (latest version)
+- name: Bootstrap user-level Guix from local clone
   block:
-    - name: Download Guix binary installer
-      get_url:
-        url: "{{ guix_binary_installer_url }}"
-        dest: "{{ guix_binary_file }}"
-        mode: "0644"
-
-    - name: Extract Guix binary to user directory
-      unarchive:
-        src: "{{ guix_binary_file }}"
-        dest: "{{ ansible_env.HOME }}/.local"
-        remote_src: true
-        creates: "{{ ansible_env.HOME }}/.local/var/guix"
-        # Note: This extracts to .local/var/guix, .local/gnu, etc.
-
-    - name: Create user directory in Guix profiles
-      file:
-        path: "{{ ansible_env.HOME }}/.local/var/guix/profiles/per-user/{{ ansible_user_id }}"
-        state: directory
-        mode: "0755"
-
-    - name: Create initial user Guix profile
-      file:
-        src: "{{ ansible_env.HOME }}/.local/var/guix/profiles/per-user/root/current-guix"
-        dest: "{{ ansible_env.HOME }}/.local/var/guix/profiles/per-user/{{ ansible_user_id }}/guix-profile"
-        state: link
-        force: true
-
-    - name: Create user Guix profile symlink
-      file:
-        src: "{{ ansible_env.HOME }}/.local/var/guix/profiles/per-user/{{ ansible_user_id }}/guix-profile"
-        dest: "{{ guix_profile_dir }}"
-        state: link
-        force: true
-
-    - name: Set up Guix environment in bashrc
-      lineinfile:
-        path: "{{ ansible_env.HOME }}/.bashrc"
-        line: "{{ item }}"
-        create: true
-        regexp: "^{{ item.split('=')[0] | regex_escape }}"
-        state: present
-      loop:
-        - 'export GUIX_PROFILE="{{ guix_profile_dir }}"'
-        - 'test -f "$GUIX_PROFILE/etc/profile" && . "$GUIX_PROFILE/etc/profile"'
-        - 'export PATH="$GUIX_PROFILE/bin:$PATH"'
-
-    - name: Initialize user Guix profile
+    - name: Clone Guix repository locally (with fallback)
       shell: |
-        export GUIX_PROFILE="{{ guix_profile_dir }}"
-        . "$GUIX_PROFILE/etc/profile"
-        {{ guix_profile_dir }}/bin/guix pull
+        if ! git clone --depth=50 {{ guix_primary_repo_url }} {{ guix_local_repo }}; then
+          echo "Primary repo failed, trying fallback..."
+          git clone --depth=50 {{ guix_fallback_repo_url }} {{ guix_local_repo }}
+        fi
       args:
-        creates: "{{ guix_config_dir }}/current"
+        creates: "{{ guix_local_repo }}/.git"
+
+    - name: Bootstrap Guix from local repository
+      shell: |
+        export PATH="/usr/bin:{{ ansible_env.PATH }}"
+        guix pull --url=file://{{ guix_local_repo }}
+      args:
+        creates: "{{ guix_current_bin }}"
       environment:
-        PATH: "{{ guix_profile_dir }}/bin:{{ ansible_env.PATH }}"
+        GUIX_LOCPATH: ""
+      register: guix_pull_result
+      failed_when: false
 
-    - name: Clean up downloaded binary
-      file:
-        path: "{{ guix_binary_file }}"
-        state: absent
+    - name: Display Guix pull output if failed
+      debug:
+        msg: |
+          Guix pull output:
+          stdout: {{ guix_pull_result.stdout }}
+          stderr: {{ guix_pull_result.stderr }}
+          return code: {{ guix_pull_result.rc }}
+      when: guix_pull_result.rc != 0
 
-  when: not guix_user_installed.stat.exists
+    - name: Fail if Guix pull was unsuccessful
+      fail:
+        msg: "Guix pull failed with return code {{ guix_pull_result.rc }}"
+      when: guix_pull_result.rc != 0
+
+  when: (install_user_guix or guix_installation_method == 'user') and not guix_user_current.stat.exists
+
+- name: Configure shell environments for user Guix
+  include_tasks: configure_shells.yml
+  when: install_user_guix or guix_installation_method == 'user'
+
+- name: Set up channels configuration for local repository
+  include_tasks: configure_channels.yml
+  when: install_user_guix or guix_installation_method == 'user'
 
 - name: Verify user Guix installation
-  command: "{{ guix_profile_dir }}/bin/guix --version"
-  register: guix_user_verify
+  shell: |
+    export PATH="{{ guix_current_dir }}/bin:{{ ansible_env.PATH }}"
+    . "{{ guix_current_dir }}/etc/profile"
+    hash -r
+    which guix && guix --version && guix describe
+  register: guix_verify
   changed_when: false
-  when: guix_user_installed.stat.exists
+  failed_when: false
+  when: install_user_guix or guix_installation_method == 'user'
 
-- name: Display user Guix version
+- name: Display Guix verification results
   debug:
-    msg: "User Guix installed successfully: {{ guix_user_verify.stdout_lines[0] }}"
-  when: guix_user_verify is defined and guix_user_verify.stdout_lines is defined and guix_user_verify.stdout_lines | length > 0
+    msg: |
+      Guix verification:
+      {{ guix_verify.stdout }}
+  when: (install_user_guix or guix_installation_method == 'user') and guix_verify.rc == 0
+
+- name: Display Guix verification failure
+  debug:
+    msg: |
+      Guix verification failed:
+      stdout: {{ guix_verify.stdout }}
+      stderr: {{ guix_verify.stderr }}
+  when: (install_user_guix or guix_installation_method == 'user') and guix_verify.rc != 0

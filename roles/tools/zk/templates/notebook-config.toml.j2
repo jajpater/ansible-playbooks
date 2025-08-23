@@ -1,15 +1,11 @@
-# zk configuration file
-# Documentation: https://zk-org.github.io/zk/config/
-
-# Default notebook settings
-[notebook]
-dir = "{{ zk_default_notebook_dir }}"
+# zk notebook configuration
+# This is a local configuration for this specific notebook
 
 # Note creation rules
 [note]
 language = "nl"
 default-title = "Untitled"
-filename = "{{ "{{id}}-{{slug title}}" }}"
+filename = {{ "\"{{id}}-{{slug title}}\"" }}
 extension = "{{ zk_note_extension }}"
 template = "{{ zk_default_template }}.md"
 id-charset = "{{ zk_note_id_charset }}"
@@ -20,35 +16,21 @@ id-case = "{{ zk_note_filename_case }}"
 [tool]
 editor = "{{ zk_default_editor }}"
 shell = "{{ zk_default_shell }}"
-pager = "less -FIRX"
-fzf-preview = "bat -p --color always {1}"
-
-# Note formatting settings
-[format]
-markdown.hashtags = true
-markdown.colon-tags = true
-markdown.multiword-tags = false
 
 # Custom note groups
 [group.daily]
 paths = ["dagboek"]
-note.filename = "{{ "{{id}}-dagboek.md" }}"
+note.filename = {{ "\"{{id}}-dagboek.md\"" }}
 note.template = "daily.md"
 
 [group.weekly]
 paths = ["wekelijks"]  
-note.filename = "{{ "{{id}}-week.md" }}"
+note.filename = {{ "\"{{id}}-week.md\"" }}
 note.template = "weekly.md"
 
 [group.project]
 paths = ["projecten"]
 note.template = "project.md"
-
-# Named filters for common searches
-[filter]
-recents = "--sort created- --created-after 'last two weeks'"
-journal = "--sort created- dagboek"
-unlinked = "--orphan --no-input"
 
 # Command aliases
 [alias]

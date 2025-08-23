@@ -1,4 +1,4 @@
-# Dagboek - {% raw %}{{format-date now '%A %d %B %Y'}}{% endraw %}
+# Dagboek - {{format-date now '%A %d %B %Y'}}
 
 ## Wat gebeurde er vandaag?
 
@@ -18,4 +18,4 @@
 
 ---
 
-#dagboek #{% raw %}{{format-date now '%Y-%m-%d'}}{% endraw %}
+#dagboek #{{format-date now '%Y-%m-%d'}}

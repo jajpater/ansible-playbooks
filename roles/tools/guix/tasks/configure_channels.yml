@@ -1,0 +1,19 @@
+---
+- name: Create channels configuration for local repository
+  template:
+    src: channels.scm.j2
+    dest: "{{ ansible_env.HOME }}/.config/guix/channels.scm"
+    mode: "0644"
+  when: guix_use_local_channels
+
+- name: Display channels configuration information
+  debug:
+    msg: |
+      Channels configuration:
+      - Local repository: {{ guix_local_repo }}
+      - Use local channels: {{ guix_use_local_channels }}
+      
+      To manually update your local Guix clone and pull:
+      git -C {{ guix_local_repo }} fetch --all --prune
+      git -C {{ guix_local_repo }} reset --hard origin/master
+      guix pull -C ~/.config/guix/channels.scm

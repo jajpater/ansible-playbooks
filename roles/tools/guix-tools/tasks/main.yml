@@ -130,9 +130,22 @@
 - name: Configure Guix profile in zsh
   blockinfile:
     path: "{{ ansible_env.HOME }}/.config/zsh/.zshrc"
-    marker: "# {mark} ANSIBLE MANAGED BLOCK - Guix Environment"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - Guix Tools Profile"
     block: |
-      # Guix package manager setup
+      # Guix tools profile setup (packages installed by user)
+      export GUIX_PROFILE="{{ guix_tools_profile }}"
+      if [ -f "$GUIX_PROFILE/etc/profile" ]; then
+          . "$GUIX_PROFILE/etc/profile"
+      fi
+    create: yes
+  when: guix_tools_to_install | length > 0
+
+- name: Configure Guix profile in bashrc
+  blockinfile:
+    path: "{{ ansible_env.HOME }}/.bashrc"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - Guix Tools Profile"
+    block: |
+      # Guix tools profile setup (packages installed by user)
       export GUIX_PROFILE="{{ guix_tools_profile }}"
       if [ -f "$GUIX_PROFILE/etc/profile" ]; then
           . "$GUIX_PROFILE/etc/profile"

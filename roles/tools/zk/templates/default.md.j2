@@ -1,11 +1,7 @@
-# {{title}}
+# {% raw %}{{title}}{% endraw %}
 
-{% if zk_use_created_date -%}
-**Aangemaakt:** {{format-date now}}
-{% endif -%}
-{% if zk_use_modified_date -%}
-**Laatst gewijzigd:** {{format-date now}}
-{% endif %}
+**Aangemaakt:** {% raw %}{{format-date now}}{% endraw %}
+**Laatst gewijzigd:** {% raw %}{{format-date now}}{% endraw %}
 
 ## Samenvatting
 

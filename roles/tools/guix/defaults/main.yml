@@ -1,26 +1,20 @@
 ---
-# Guix installation method for user-level installation (latest version)
-guix_install_method: "user_space"
+# User-level Guix bootstrap from local Git clone
+# This avoids TLS issues by using file:// URLs for guix pull
 
-# User-level installation paths (XDG compliant)
-guix_home_dir: "{{ ansible_env.HOME }}"
-guix_profile_dir: "{{ ansible_env.HOME }}/.guix-profile"
-guix_home_profile: "{{ ansible_env.HOME }}/.guix-home"
-guix_config_dir: "{{ ansible_env.HOME }}/.config/guix"
-guix_cache_dir: "{{ ansible_env.HOME }}/.cache/guix"
-guix_data_dir: "{{ ansible_env.HOME }}/.local/share/guix"
+# Local repository configuration  
+guix_local_repo: "{{ ansible_env.HOME }}/.local/src/guix"
+guix_primary_repo_url: "https://git.savannah.gnu.org/git/guix.git"
+guix_fallback_repo_url: "https://github.com/guix-mirror/guix.git"
 
-# Binary installation URL (latest)
-guix_binary_installer_url: "https://ftp.gnu.org/gnu/guix/guix-binary-1.4.0.x86_64-linux.tar.xz"
-guix_binary_file: "{{ ansible_env.HOME }}/.local/src/guix-binary.tar.xz"
+# User Guix paths (after guix pull)
+guix_current_dir: "{{ ansible_env.HOME }}/.config/guix/current"
+guix_current_bin: "{{ guix_current_dir }}/bin/guix"
 
-# User-level daemon (if supported)
-guix_daemon_unprivileged: false  # Disable for compatibility
-guix_use_home: false  # Disable Guix Home by default
+# Channels configuration
+guix_use_local_channels: true
+guix_channels_file: "{{ ansible_env.HOME }}/.config/guix/channels.scm"
 
-# Environment variables for user installation
-guix_env_vars:
-  GUIX_PROFILE: "{{ guix_profile_dir }}"
-  XDG_CONFIG_HOME: "{{ ansible_env.HOME }}/.config"
-  XDG_CACHE_HOME: "{{ ansible_env.HOME }}/.cache"
-  XDG_DATA_HOME: "{{ ansible_env.HOME }}/.local/share"
+# Shell configuration
+guix_configure_zsh: true
+guix_configure_bash: true
