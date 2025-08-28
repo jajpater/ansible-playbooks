@@ -1,0 +1,13 @@
+---
+- name: Install wezterm via GitHub releases
+  include_role:
+    name: helpers/github_install
+  vars:
+    name: "wezterm"
+    repo: "wez/wezterm"
+    asset_regex: "WezTerm-.*-Ubuntu.*\\.AppImage$"
+    bin_relpath: "wezterm"
+    skip_symlink: false
+  tags:
+    - wezterm
+    - terminal

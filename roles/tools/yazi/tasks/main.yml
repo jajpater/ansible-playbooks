@@ -1,0 +1,15 @@
+---
+- name: Install yazi via GitHub
+  include_role:
+    name: helpers/github_install
+  vars:
+    name: "yazi"
+    repo: "sxyazi/yazi"
+    asset_regex: "yazi-x86_64-unknown-linux-gnu\\.zip$"
+    bin_relpath: "yazi-x86_64-unknown-linux-gnu/yazi"
+
+- name: Verify yazi installation
+  command: "{{ ansible_env.HOME }}/.local/bin/yazi --version"
+  register: yazi_version
+  changed_when: false
+  failed_when: yazi_version.rc != 0

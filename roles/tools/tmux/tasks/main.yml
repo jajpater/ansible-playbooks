@@ -1,0 +1,13 @@
+---
+- name: Install tmux via GitHub releases
+  include_role:
+    name: helpers/github_install
+  vars:
+    name: "tmux"
+    repo: "tmux/tmux"
+    asset_regex: "tmux-.*-x86_64.AppImage$"
+    bin_relpath: "tmux"
+    skip_symlink: false
+  tags:
+    - tmux
+    - terminal

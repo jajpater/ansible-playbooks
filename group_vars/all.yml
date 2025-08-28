@@ -49,10 +49,10 @@ tool_installation_config:
     method: "individual"
     reason: "Bitwarden server config, rofi integration, security settings"
     
-  # Simple tools with minimal configuration → Guix
+  # Simple tools with minimal configuration → individual (via GitHub)
   fzf:
-    method: "guix"
-    reason: "Simple binary installation, no complex configuration needed"
+    method: "individual"
+    reason: "GitHub installation for latest version control"
     
   greenclip:
     method: "individual"

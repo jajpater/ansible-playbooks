@@ -1,0 +1,32 @@
+---
+- name: Ensure ~/.local/bin directory exists
+  file:
+    path: "{{ user_bin }}"
+    state: directory
+    mode: '0755'
+
+- name: Check if vifm is already installed
+  stat:
+    path: "{{ user_bin }}/vifm"
+  register: vifm_installed
+
+- name: Get latest vifm version
+  uri:
+    url: "https://api.github.com/repos/vifm/vifm/releases/latest"
+    headers:
+      Authorization: "token {{ github_token | default(omit) }}"
+  register: vifm_release
+  when: not vifm_installed.stat.exists
+
+- name: Download vifm AppImage
+  get_url:
+    url: "https://github.com/vifm/vifm/releases/latest/download/vifm-v{{ vifm_release.json.tag_name | regex_replace('^v', '') }}-x86_64.AppImage"
+    dest: "{{ user_bin }}/vifm"
+    mode: '0755'
+  when: not vifm_installed.stat.exists and vifm_release.json is defined
+
+- name: Verify vifm installation
+  command: "{{ user_bin }}/vifm --version"
+  register: vifm_version
+  changed_when: false
+  failed_when: vifm_version.rc != 0

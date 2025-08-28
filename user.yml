@@ -27,6 +27,9 @@
     - role: tools/microsoft-365-fonts
       tags: [microsoft-365-fonts, fonts]
 
+    - role: tools/nerd-fonts
+      tags: [nerd-fonts, fonts]
+
     # Individual tool roles (per-tool configuration)
     - role: tools/greenclip
       tags: [greenclip]
@@ -105,6 +108,27 @@
 
     - role: tools/zk
       tags: [zk, notes, notebook, zettelkasten]
+
+    - role: tools/cheat-sh
+      tags: [cheat-sh, cheat, tools]
+
+    - role: tools/vifm
+      tags: [vifm, file-manager]
+
+    - role: tools/yazi
+      tags: [yazi, file-manager]
+
+    - role: tools/vifm_devicons
+      tags: [vifm-devicons, vifm, file-manager]
+
+    - role: tools/alacritty
+      tags: [alacritty, terminal]
+
+    - role: tools/wezterm
+      tags: [wezterm, terminal]
+
+    - role: tools/tmux
+      tags: [tmux, terminal]
 
     - role: tools/github_script
       vars:

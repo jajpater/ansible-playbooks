@@ -1,0 +1,78 @@
+---
+- name: Check for system dependencies
+  shell: |
+    dpkg-query -W cmake pkg-config libfreetype6-dev libfontconfig1-dev libxcb-xfixes0-dev libxkbcommon-dev python3 2>/dev/null || echo "missing"
+  register: deps_check
+  failed_when: false
+  changed_when: false
+  tags:
+    - alacritty
+    - terminal
+
+- name: Fail if dependencies missing
+  fail:
+    msg: |
+      Alacritty compilation requires system dependencies. Please install them first:
+      sudo apt install cmake pkg-config libfreetype6-dev libfontconfig1-dev libxcb-xfixes0-dev libxkbcommon-dev python3
+  when: "'missing' in deps_check.stdout"
+  tags:
+    - alacritty
+    - terminal
+
+- name: Install Rust (required for alacritty)
+  shell: |
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+    source ~/.cargo/env
+  args:
+    creates: "{{ ansible_env.HOME }}/.cargo/bin/rustc"
+  tags:
+    - alacritty
+    - terminal
+
+- name: Ensure source directory exists
+  file:
+    path: "{{ ansible_env.HOME }}/.local/src"
+    state: directory
+    mode: "0755"
+  tags:
+    - alacritty
+    - terminal
+
+- name: Clone alacritty repository
+  git:
+    repo: https://github.com/alacritty/alacritty.git
+    dest: "{{ ansible_env.HOME }}/.local/src/alacritty"
+    update: false
+  tags:
+    - alacritty
+    - terminal
+
+- name: Build and install alacritty
+  shell: |
+    source ~/.cargo/env
+    cargo build --release
+    cp target/release/alacritty {{ ansible_env.HOME }}/.local/bin/
+  args:
+    chdir: "{{ ansible_env.HOME }}/.local/src/alacritty"
+    creates: "{{ ansible_env.HOME }}/.local/bin/alacritty"
+  tags:
+    - alacritty
+    - terminal
+
+- name: Install alacritty desktop entry
+  copy:
+    src: "{{ ansible_env.HOME }}/.local/src/alacritty/extra/linux/Alacritty.desktop"
+    dest: "{{ ansible_env.HOME }}/.local/share/applications/Alacritty.desktop"
+    remote_src: true
+  tags:
+    - alacritty
+    - terminal
+
+- name: Install alacritty icon
+  copy:
+    src: "{{ ansible_env.HOME }}/.local/src/alacritty/extra/logo/alacritty-term.svg"
+    dest: "{{ ansible_env.HOME }}/.local/share/pixmaps/Alacritty.svg"
+    remote_src: true
+  tags:
+    - alacritty
+    - terminal

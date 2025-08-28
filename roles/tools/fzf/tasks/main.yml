@@ -1,10 +1,43 @@
-- name: Install fzf (GitHub latest)
-  include_role:
-    name: helpers/github_install
-  vars:
-    name: "fzf"
-    repo: "junegunn/fzf"
-    # fzf assets are like: fzf-0.62.0-linux_amd64.tar.gz
-    asset_regex: "linux_amd64\\.tar\\.gz$"
-    bin_relpath: "fzf"
+- name: Install fzf with all helper scripts
+  block:
+    - name: Create fzf source directory
+      file:
+        path: "{{ ansible_env.HOME }}/.local/src/fzf"
+        state: directory
+        mode: '0755'
+
+    - name: Clone fzf repository
+      git:
+        repo: https://github.com/junegunn/fzf.git
+        dest: "{{ ansible_env.HOME }}/.local/src/fzf"
+        update: true
+        force: true
+
+    - name: Install fzf
+      shell: "{{ ansible_env.HOME }}/.local/src/fzf/install --bin --key-bindings --completion --no-update-rc"
+      args:
+        creates: "{{ ansible_env.HOME }}/.local/bin/fzf"
+
+    - name: Create shell integration directory
+      file:
+        path: "{{ ansible_env.HOME }}/.local/share/fzf"
+        state: directory
+        mode: '0755'
+
+    - name: Copy shell integration files
+      copy:
+        src: "{{ ansible_env.HOME }}/.local/src/fzf/shell/{{ item }}"
+        dest: "{{ ansible_env.HOME }}/.local/share/fzf/{{ item }}"
+        mode: '0644'
+        remote_src: true
+      loop:
+        - key-bindings.bash
+        - key-bindings.zsh
+        - completion.bash
+        - completion.zsh
+
+  when: >
+    tool_installation_method == 'individual' or
+    (tool_installation_method == 'hybrid' and 
+     tool_installation_config.fzf.method == 'individual')
   tags: [fzf]

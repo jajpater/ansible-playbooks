@@ -1,0 +1,13 @@
+# Nerd Fonts configuration
+nerd_fonts_version: "v3.4.0"
+
+# List of Nerd Fonts to install
+# Popular programming fonts with good terminal support
+nerd_fonts_to_install:
+  - FiraCode           # Popular ligature font
+  - JetBrainsMono     # JetBrains IDE font
+  - SourceCodePro     # Adobe's coding font  
+  - CascadiaCode      # Microsoft's programming font
+  - Hack              # Clean monospace font
+  - UbuntuMono        # Ubuntu's default mono font
+  - NerdFontsSymbolsOnly # Essential Nerd Font symbols and icons

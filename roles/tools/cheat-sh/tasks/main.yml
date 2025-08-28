@@ -1,0 +1,16 @@
+---
+- name: Download cheat.sh client
+  get_url:
+    url: https://cht.sh/:cht.sh
+    dest: "{{ user_bin }}/cht.sh"
+    mode: '0755'
+    force: false
+  tags: [cheat-sh, tools, cli]
+
+- name: Create cheat alias
+  lineinfile:
+    path: "{{ user_home }}/.local/share/shell_aliases"
+    line: "alias cheat='cht.sh'"
+    create: true
+    mode: '0644'
+  tags: [cheat-sh, tools, cli]

@@ -1,0 +1,41 @@
+- name: Ensure local fonts directory exists
+  file:
+    path: "{{ ansible_env.HOME }}/.local/share/fonts/nerd-fonts"
+    state: directory
+    mode: "0755"
+  tags: [nerd-fonts]
+
+- name: Create font subdirectories
+  file:
+    path: "{{ ansible_env.HOME }}/.local/share/fonts/nerd-fonts/{{ item }}"
+    state: directory
+    mode: "0755"
+  loop: "{{ nerd_fonts_to_install }}"
+  tags: [nerd-fonts]
+
+- name: Download and install Nerd Fonts
+  block:
+    - name: Download {{ item }} Nerd Font
+      get_url:
+        url: "https://github.com/ryanoasis/nerd-fonts/releases/download/{{ nerd_fonts_version }}/{{ item }}.zip"
+        dest: "/tmp/{{ item }}-nerd-font.zip"
+        mode: "0644"
+      loop: "{{ nerd_fonts_to_install }}"
+      tags: [nerd-fonts]
+
+    - name: Extract {{ item }} Nerd Font
+      unarchive:
+        src: "/tmp/{{ item }}-nerd-font.zip"
+        dest: "{{ ansible_env.HOME }}/.local/share/fonts/nerd-fonts/{{ item }}"
+        remote_src: true
+        creates: "{{ ansible_env.HOME }}/.local/share/fonts/nerd-fonts/{{ item }}/README.md"
+      loop: "{{ nerd_fonts_to_install }}"
+      tags: [nerd-fonts]
+      notify: rebuild font cache
+
+- name: Clean up downloaded archives
+  file:
+    path: "/tmp/{{ item }}-nerd-font.zip"
+    state: absent
+  loop: "{{ nerd_fonts_to_install }}"
+  tags: [nerd-fonts]
